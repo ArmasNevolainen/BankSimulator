@@ -8,145 +8,154 @@ import simu.framework.Clock;
 import simu.framework.Engine;
 import simu.framework.Event;
 
-import java.util.Random;
-
 public class MyEngine extends Engine {
 	private ArrivalProcess arrivalProcess;
-	private ServicePoint[] servicePoints;
-	public static final boolean TEXTDEMO = true;
-	public static final boolean FIXEDARRIVALTIMES = false;
-	public static final boolean FXIEDSERVICETIMES = false;
+	private ServicePoint queueAutomat; // Queue number dispenser
+	private ServicePoint[] transactionTellers;
+	private ServicePoint accountTeller;
 
-	/*
-	 * This is the place where you implement your own simulator
-	 *
-	 * Demo simulation case:
-	 * Simulate three service points, customer goes through all three service points to get serviced
-	 * 		--> SP1 --> SP2 --> SP3 -->
-	 */
 	public MyEngine() {
-		servicePoints = new ServicePoint[3];
+		// Initialize queue number automat (very fast service, mean=1 min, std=0.5)
+		queueAutomat = new ServicePoint(
+				new Normal(1, 0.5),
+				eventList,
+				EventType.DEP_AUTOMAT
+		);
 
-		if (TEXTDEMO) {
-			/* special setup for the example in text
-			 * https://github.com/jacquesbergelius/PP-CourseMaterial/blob/master/1.1_Introduction_to_Simulation.md
-			 */
-			Random r = new Random();
-
-			ContinuousGenerator arrivalTime = null;
-			if (FIXEDARRIVALTIMES) {
-				/* version where the arrival times are constant (and greater than service times) */
-
-				// make a special "random number distribution" which produces constant value for the customer arrival times
-				arrivalTime = new ContinuousGenerator() {
-					@Override
-					public double sample() {
-						return 10;
-					}
-
-					@Override
-					public void setSeed(long seed) {
-					}
-
-					@Override
-					public long getSeed() {
-						return 0;
-					}
-
-					@Override
-					public void reseed() {
-					}
-				};
-			} else
-				// exponential distribution is used to model customer arrivals times, to get variability between programs runs, give a variable seed
-				arrivalTime = new Negexp(10, Integer.toUnsignedLong(r.nextInt()));
-
-			ContinuousGenerator serviceTime = null;
-			if (FXIEDSERVICETIMES) {
-				// make a special "random number distribution" which produces constant value for the service time in service points
-				serviceTime = new ContinuousGenerator() {
-					@Override
-					public double sample() {
-						return 9;
-					}
-
-					@Override
-					public void setSeed(long seed) {
-					}
-
-					@Override
-					public long getSeed() {
-						return 0;
-					}
-
-					@Override
-					public void reseed() {
-					}
-				};
-			} else
-				// normal distribution used to model service times
-				serviceTime = new Normal(10, 6, Integer.toUnsignedLong(r.nextInt()));
-
-			servicePoints[0] = new ServicePoint(serviceTime, eventList, EventType.DEP1);
-			servicePoints[1] = new ServicePoint(serviceTime, eventList, EventType.DEP2);
-			servicePoints[2] = new ServicePoint(serviceTime, eventList, EventType.DEP3);
-
-			arrivalProcess = new ArrivalProcess(arrivalTime, eventList, EventType.ARR1);
-		} else {
-			/* more realistic simulation case with variable customer arrival times and service times */
-			servicePoints[0] = new ServicePoint(new Normal(10, 6), eventList, EventType.DEP1);
-			servicePoints[1] = new ServicePoint(new Normal(10, 10), eventList, EventType.DEP2);
-			servicePoints[2] = new ServicePoint(new Normal(5, 3), eventList, EventType.DEP3);
-
-			arrivalProcess = new ArrivalProcess(new Negexp(15, 5), eventList, EventType.ARR1);
+		// Initialize 3 transaction tellers (mean=8 min, std=3)
+		transactionTellers = new ServicePoint[3];
+		for(int i = 0; i < 3; i++) {
+			transactionTellers[i] = new ServicePoint(
+					new Normal(10, 5),
+					eventList,
+					EventType.valueOf("DEP_TELLER" + (i+1))
+			);
 		}
+
+		// Initialize account operations teller (mean=15 min, std=5)
+		accountTeller = new ServicePoint(
+				new Normal(20, 10),
+				eventList,
+				EventType.DEP_TELLER4
+		);
+
+		// Customer arrivals follow negative exponential distribution (mean=10 min)
+		arrivalProcess = new ArrivalProcess(
+				new Negexp(3),
+				eventList,
+				EventType.ARR_AUTOMAT
+		);
 	}
 
 	@Override
-	protected void initialize() {	// First arrival in the system
+	protected void initialize() {
 		arrivalProcess.generateNextEvent();
 	}
 
 	@Override
-	protected void runEvent(Event t) {  // B phase events
+	protected void runEvent(Event t) {
 		Customer a;
 
 		switch ((EventType)t.getType()) {
-		case ARR1:
-			servicePoints[0].addQueue(new Customer());
-			arrivalProcess.generateNextEvent();
-			break;
+			case ARR_AUTOMAT:
+				// Customer arrives at queue automat
+				CustomerType type = Math.random() < 0.7 ?
+						CustomerType.TRANSACTION_CLIENT :
+						CustomerType.ACCOUNT_CLIENT;
 
-		case DEP1:
-			a = servicePoints[0].removeQueue();
-			servicePoints[1].addQueue(a);
-			break;
+				Customer newCustomer = new Customer(type);
+				queueAutomat.addQueue(newCustomer);
+				arrivalProcess.generateNextEvent();
+				break;
 
-		case DEP2:
-			a = servicePoints[1].removeQueue();
-			servicePoints[2].addQueue(a);
-			break;
+			case DEP_AUTOMAT:
+				// Customer gets queue number and moves to appropriate queue
+				a = queueAutomat.removeQueue();
+				if(a.getType() == CustomerType.TRANSACTION_CLIENT) {
+					ServicePoint bestTeller = findShortestQueue(transactionTellers);
+					bestTeller.addQueue(a);
+				} else {
+					accountTeller.addQueue(a);
+				}
+				break;
 
-		case DEP3:
-			a = servicePoints[2].removeQueue();
-			a.setRemovalTime(Clock.getInstance().getClock());
-		    a.reportResults();
-			break;
+			case DEP_TELLER1:
+				a = transactionTellers[0].removeQueue();
+				a.setRemovalTime(Clock.getInstance().getClock());
+				a.reportResults();
+				break;
+
+			case DEP_TELLER2:
+				a = transactionTellers[1].removeQueue();
+				a.setRemovalTime(Clock.getInstance().getClock());
+				a.reportResults();
+				break;
+
+			case DEP_TELLER3:
+				a = transactionTellers[2].removeQueue();
+				a.setRemovalTime(Clock.getInstance().getClock());
+				a.reportResults();
+				break;
+
+			case DEP_TELLER4:
+				a = accountTeller.removeQueue();
+				a.setRemovalTime(Clock.getInstance().getClock());
+				a.reportResults();
+				break;
 		}
 	}
 
 	@Override
 	protected void tryCEvents() {
-		for (ServicePoint p: servicePoints){
-			if (!p.isReserved() && p.isOnQueue()){
-				p.beginService();
+		// Check queue automat
+		if (!queueAutomat.isReserved() && queueAutomat.isOnQueue()) {
+			queueAutomat.beginService();
+		}
+
+		// Check transaction tellers
+		for (ServicePoint teller : transactionTellers) {
+			if (!teller.isReserved() && teller.isOnQueue()) {
+				teller.beginService();
 			}
+		}
+
+		// Check account teller
+		if (!accountTeller.isReserved() && accountTeller.isOnQueue()) {
+			accountTeller.beginService();
 		}
 	}
 
 	@Override
 	protected void results() {
-		System.out.println("Simulation ended at " + Clock.getInstance().getClock());
-		System.out.println("Results ... are currently missing");
+		System.out.println("\n========= Simulation Results =========");
+		System.out.println("Simulation ended at: " + Clock.getInstance().getClock());
+
+		System.out.println("\nQueue Automat Statistics:");
+		printServicePointStats(queueAutomat, "Queue Automat");
+
+		System.out.println("\nTransaction Tellers Statistics:");
+		for(int i = 0; i < transactionTellers.length; i++) {
+			printServicePointStats(transactionTellers[i], "Teller " + (i+1));
+		}
+
+		System.out.println("\nAccount Operations Teller Statistics:");
+		printServicePointStats(accountTeller, "Account Teller");
+	}
+
+	private ServicePoint findShortestQueue(ServicePoint[] points) {
+		ServicePoint shortest = points[0];
+		for(ServicePoint sp : points) {
+			if(sp.getQueueLength() < shortest.getQueueLength()) {
+				shortest = sp;
+			}
+		}
+		return shortest;
+	}
+
+	private void printServicePointStats(ServicePoint sp, String name) {
+		System.out.println(name + ":");
+		System.out.println("  Average Service Time: " + sp.getAverageServiceTime());
+		System.out.println("  Average Queue Time: " + sp.getAverageQueueTime());
+
 	}
 }

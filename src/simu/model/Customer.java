@@ -3,22 +3,28 @@ package simu.model;
 import simu.framework.Clock;
 import simu.framework.Trace;
 
-// TODO:
-// Customer to be implemented according to the requirements of the simulation model (data!)
 public class Customer {
 	private double arrivalTime;
 	private double removalTime;
 	private int id;
+	private CustomerType type;
 	private static int i = 1;
 	private static long sum = 0;
-	
-	public Customer(){
-	    id = i++;
-	    
+
+//	public enum CustomerType {
+//		TRANSACTION_CLIENT, // For deposits/withdrawals
+//		ACCOUNT_CLIENT     // For account operations
+//	}
+
+	public Customer(CustomerType type){
+		this.type = type;
+		id = i++;
 		arrivalTime = Clock.getInstance().getClock();
-		Trace.out(Trace.Level.INFO, "New customer #" + id + " arrived at  " + arrivalTime);
 	}
 
+	public CustomerType getType() {
+		return type;
+	}
 	public double getRemovalTime() {
 		return removalTime;
 	}

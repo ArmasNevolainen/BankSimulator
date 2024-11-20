@@ -15,8 +15,9 @@ public class ServicePoint {
 	private ContinuousGenerator generator;
 	private EventList eventList;
 	private EventType eventTypeScheduled;
-	//Queuestrategy strategy; // option: ordering of the customer
+	private double serviceStartTime;
 	private boolean reserved = false;
+	private double queueStartTime;
 
 
 	public ServicePoint(ContinuousGenerator generator, EventList eventList, EventType type){
@@ -25,21 +26,33 @@ public class ServicePoint {
 		this.eventTypeScheduled = type;
 	}
 
-	public void addQueue(Customer a) {	// The first customer of the queue is always in service
+	public void addQueue(Customer a) {
+		queueStartTime = Clock.getInstance().getClock();
 		queue.add(a);
 	}
 
-	public Customer removeQueue() {		// Remove serviced customer
-		reserved = false;
-		return queue.poll();
-	}
-
-	public void beginService() {		// Begins a new service, customer is on the queue during the service
+	public void beginService() {
 		Trace.out(Trace.Level.INFO, "Starting a new service for the customer #" + queue.peek().getId());
-		
+
+		// Calculate and store queue time when service begins
+		double queueTime = Clock.getInstance().getClock() - queueStartTime;
+		totalQueueTime += queueTime;
+
+		serviceStartTime = Clock.getInstance().getClock();
 		reserved = true;
 		double serviceTime = generator.sample();
+
 		eventList.add(new Event(eventTypeScheduled, Clock.getInstance().getClock()+serviceTime));
+	}
+
+	public Customer removeQueue() {
+		reserved = false;
+		// Calculate and store service time when customer leaves
+		double serviceTime = Clock.getInstance().getClock() - serviceStartTime;
+		totalServiceTime += serviceTime;
+		totalCustomers++;
+
+		return queue.poll();
 	}
 
 	public boolean isReserved(){
@@ -48,5 +61,28 @@ public class ServicePoint {
 
 	public boolean isOnQueue(){
 		return queue.size() != 0;
+	}
+
+	public int getQueueLength() {
+		return queue.size();
+	}
+
+	// Add statistics tracking
+	private int totalCustomers = 0;
+	private double totalServiceTime = 0;
+	private double totalQueueTime = 0;
+
+	public void addStatistics(double serviceTime, double queueTime) {
+		totalCustomers++;
+		totalServiceTime += serviceTime;
+		totalQueueTime += queueTime;
+	}
+
+	public double getAverageServiceTime() {
+		return totalCustomers > 0 ? totalServiceTime/totalCustomers : 0;
+	}
+
+	public double getAverageQueueTime() {
+		return totalCustomers > 0 ? totalQueueTime/totalCustomers : 0;
 	}
 }
