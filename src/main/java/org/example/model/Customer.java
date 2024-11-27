@@ -25,6 +25,7 @@ public class Customer {
 	public CustomerType getType() {
 		return type;
 	}
+
 	public double getRemovalTime() {
 		return removalTime;
 	}

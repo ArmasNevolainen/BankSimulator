@@ -13,11 +13,15 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+import org.example.controller.SimulatorController;
+import org.example.model.Customer;
 
 
+import java.util.List;
 import java.util.Objects;
 
 public class SimulatorView extends Application {
+    private SimulatorController controller = new SimulatorController(this);
     private Button startButton = new Button("Start");
     private Button pauseButton = new Button("Pause");
     private Button resetButton = new Button("Reset");
@@ -115,7 +119,7 @@ public class SimulatorView extends Application {
         statusArea.setEditable(false);
         statusArea.setText("Simulation ready to start...");
 
-        // Add all components to main layout
+
         mainLayout.setTop(controlPanel);
         mainLayout.setLeft(settingsPanel);
         mainLayout.setCenter(canvasWrapper);
@@ -126,7 +130,39 @@ public class SimulatorView extends Application {
         stage.setScene(scene);
         stage.show();
 
+
+        startButton.setOnAction(e -> controller.startSimulation());
+        pauseButton.setOnAction(e -> controller.pauseSimulation());
+        resetButton.setOnAction(e -> controller.resetSimulation());
+
+        speedSlider.valueProperty().addListener((obs, oldVal, newVal) ->
+                controller.setSimulationSpeed(newVal.doubleValue()));
+
+        stationsSelector.valueProperty().addListener((obs, oldVal, newVal) ->
+                controller.setNumberOfStations(Integer.parseInt(newVal.split(" ")[0])));
+
+        intervalSlider.valueProperty().addListener((obs, oldVal, newVal) ->
+                controller.setArrivalInterval(newVal.doubleValue()));
     }
+
+//    private void drawCustomers(List<Customer> customers) {
+//        GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
+//        Image customerImage = new Image(getClass().getResource("/Customer.png").toExternalForm());
+//
+//        // Clear previous drawings
+//        gc.clearRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
+
+//        // Draw each customer
+//        for (Customer customer : customers) {
+//            // Calculate position based on queue position
+//            int x = 150 + (customer.getQueuePosition() * 30);
+//            int y = 160;
+//
+//            // Draw customer
+//            gc.drawImage(customerImage, x, y, 20, 40);
+
+//        }
+//    }
 
 //    private void redrawSimulation() {
 //        GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
