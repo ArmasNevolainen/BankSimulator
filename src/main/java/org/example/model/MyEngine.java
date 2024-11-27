@@ -2,6 +2,7 @@ package org.example.model;
 
 import org.example.eduni.distributions.Negexp;
 import org.example.eduni.distributions.Normal;
+import org.example.eduni.distributions.Poisson;
 import org.example.framework.ArrivalProcess;
 import org.example.framework.Clock;
 import org.example.framework.Engine;
@@ -58,10 +59,10 @@ public class MyEngine extends Engine {
 		switch ((EventType)t.getType()) {
 			case ARR_AUTOMAT:
 				// Customer arrives at queue automat
-				CustomerType type = Math.random() < 0.7 ?
+				CustomerType type = new Poisson(0.2).sample() == 0 ?
 						CustomerType.TRANSACTION_CLIENT :
 						CustomerType.ACCOUNT_CLIENT;
-
+				System.out.println("Customer arrived: " + type);
 				Customer newCustomer = new Customer(type);
 				queueAutomat.addQueue(newCustomer);
 				arrivalProcess.generateNextEvent();

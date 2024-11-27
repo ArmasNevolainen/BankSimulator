@@ -102,7 +102,7 @@ public class SimulatorView extends Application {
         mainLayout.setCenter(canvasContainer);
 
 // Draw 3 teller stations
-        int tellerWidth = 40;
+        int tellerWidth = 50;
         int tellerHeight = 60;
         int tellerX = 550;    // X position for all tellers
         int startY = 50;     // Starting Y position for first teller
