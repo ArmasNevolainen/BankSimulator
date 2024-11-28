@@ -1,10 +1,23 @@
 package org.example.framework;
 
+import org.example.model.Customer;
+
+import java.util.List;
+import java.util.Map;
+
 public abstract class Engine {
 	private double simulationTime = 0;	// time when the simulation will be stopped
 	private Clock clock;				// to simplify the code (clock.getClock() instead Clock.getInstance().getClock())
 	protected EventList eventList;		// events to be processed are stored here
+	protected QueueUpdateListener queueUpdateListener;
 
+	public interface QueueUpdateListener {
+		void onQueueUpdate(Map<String, List<Customer>> queueStatus);
+	}
+
+	public void setQueueUpdateListener(QueueUpdateListener listener) {
+		this.queueUpdateListener = listener;
+	}
 	public Engine() {
 		clock = Clock.getInstance();
 		

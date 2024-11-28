@@ -1,10 +1,18 @@
 package org.example.controller;
 
+import javafx.scene.canvas.GraphicsContext;
 import org.example.View.SimulatorView;
 import org.example.framework.Engine;
 import org.example.framework.Trace;
+import org.example.model.Customer;
+import org.example.model.CustomerType;
 import org.example.model.MyEngine;
 import javafx.application.Platform;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SimulatorController {
     private SimulatorView view;
@@ -14,32 +22,30 @@ public class SimulatorController {
     private double simulationSpeed = 1.0;
     private int numberOfStations = 3;
     private double arrivalInterval = 5.0;
+    private long sleepTime = 100; // Default sleep time in milliseconds
+
 
     public SimulatorController(SimulatorView view) {
         this.view = view;
     }
 
     public void startSimulation() {
-        if (simulationThread != null && simulationThread.isAlive()) {
-            return;
-        }
+        System.out.println("Starting simulation...");
 
         Trace.setTraceLevel(Trace.Level.INFO);
-        engine = new MyEngine();
+        engine = new MyEngine(this);
+        engine.setQueueUpdateListener(newStatus -> updateQueueStatus(newStatus));
         engine.setSimulationTime(1000);
 
         simulationThread = new Thread(() -> {
-            try {
-                engine.run();
-                Platform.runLater(() -> updateStatus("Simulation completed"));
-            } catch (Exception e) {
-                Platform.runLater(() -> updateStatus("Simulation error: " + e.getMessage()));
-            }
+            System.out.println("Simulation thread starting");
+            engine.run();
         });
 
         simulationThread.start();
-        updateStatus("Simulation started");
     }
+
+
 
     public void pauseSimulation() {
         isPaused = !isPaused;
@@ -50,15 +56,12 @@ public class SimulatorController {
         if (simulationThread != null) {
             simulationThread.interrupt();
         }
-        engine = new MyEngine();
+        engine = new MyEngine(this);
         isPaused = false;
         updateStatus("Simulation reset");
     }
 
-    public void setSimulationSpeed(double speed) {
-        this.simulationSpeed = speed;
-        updateStatus("Speed set to: " + speed);
-    }
+
 
     public void setNumberOfStations(int stations) {
         this.numberOfStations = stations;
@@ -75,7 +78,37 @@ public class SimulatorController {
             // Update status
         });
     }
+    private Map<String, List<Customer>> currentQueueStatus = new HashMap<>();
 
+    public void updateQueueStatus(Map<String, List<Customer>> newStatus) {
+        System.out.println("Controller received update: " + newStatus);
+        this.currentQueueStatus = newStatus;
+        System.out.println("Queue status updated: " + newStatus.size() + " queues");
+        Platform.runLater(() -> view.updateQueueVisualization(currentQueueStatus));
+    }
+
+
+    public Map<String, List<Customer>> getQueueStatus() {
+        return currentQueueStatus;
+    }
+
+    public Map<String, List<Integer>> convertQueueStatusToSigns(Map<String, List<Customer>> queueStatus) {
+        return queueStatus.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().stream()
+                                .map(customer -> customer.getType() == CustomerType.TRANSACTION_CLIENT ? 1 : 2)
+                                .collect(Collectors.toList())
+                ));
+    }
+    public void setSimulationSpeed(double sliderValue) {
+        // Convert slider value (0-100) to sleep time (200ms - 0ms)
+        this.sleepTime = (long)(200 - (sliderValue * 2));
+    }
+
+    public long getSleepTime() {
+        return sleepTime;
+    }
     public boolean isPaused() {
         return isPaused;
     }

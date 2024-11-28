@@ -15,10 +15,8 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import org.example.controller.SimulatorController;
 import org.example.model.Customer;
-
-
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
 public class SimulatorView extends Application {
     private SimulatorController controller = new SimulatorController(this);
@@ -77,18 +75,8 @@ public class SimulatorView extends Application {
                 intervalLabel,
                 intervalSlider
         );
-
         // Canvas
         simulationCanvas = new Canvas(650, 400);
-        Image automate = new Image(getClass().getResource("/QueueAutomate.png").toExternalForm());
-        Image teller = new Image(getClass().getResource("/Teller.png").toExternalForm());
-        GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
-        gc.setFill(Color.GRAY);
-        gc.fillRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
-        ImageView imageAutomate = new ImageView(automate);
-        imageAutomate.setFitWidth(40);
-        imageAutomate.setFitHeight(60);
-        gc.drawImage(automate, 100, 160, 40, 60);
         VBox canvasContainer = new VBox();
         canvasContainer.setAlignment(Pos.CENTER);
         canvasContainer.setMaxWidth(Double.MAX_VALUE);
@@ -101,24 +89,9 @@ public class SimulatorView extends Application {
         canvasContainer.getChildren().add(canvasWrapper);
         mainLayout.setCenter(canvasContainer);
 
-// Draw 3 teller stations
-        int tellerWidth = 50;
-        int tellerHeight = 60;
-        int tellerX = 550;    // X position for all tellers
-        int startY = 50;     // Starting Y position for first teller
-        int spacing = 120;    // Vertical space between tellers
-
-        gc.drawImage(teller, tellerX, startY, tellerWidth, tellerHeight);
-        gc.drawImage(teller, tellerX, startY + spacing, tellerWidth, tellerHeight);
-        gc.drawImage(teller, tellerX, startY + spacing * 2, tellerWidth, tellerHeight);
-
-
-
-        // Status Area
         statusArea.setPrefRowCount(3);
         statusArea.setEditable(false);
         statusArea.setText("Simulation ready to start...");
-
 
         mainLayout.setTop(controlPanel);
         mainLayout.setLeft(settingsPanel);
@@ -128,8 +101,11 @@ public class SimulatorView extends Application {
         Scene scene = new Scene(mainLayout, 900, 600);
         stage.setTitle("Simulation Control Panel");
         stage.setScene(scene);
-        stage.show();
 
+        // Initial draw
+        drawBaseElements();
+
+        stage.show();
 
         startButton.setOnAction(e -> controller.startSimulation());
         pauseButton.setOnAction(e -> controller.pauseSimulation());
@@ -145,31 +121,76 @@ public class SimulatorView extends Application {
                 controller.setArrivalInterval(newVal.doubleValue()));
     }
 
-//    private void drawCustomers(List<Customer> customers) {
-//        GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
-//        Image customerImage = new Image(getClass().getResource("/Customer.png").toExternalForm());
-//
-//        // Clear previous drawings
-//        gc.clearRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
+    public void updateQueueVisualization(Map<String, List<Customer>> queueStatus) {
+        Platform.runLater(() -> {
+            GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
+            gc.clearRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
 
-//        // Draw each customer
-//        for (Customer customer : customers) {
-//            // Calculate position based on queue position
-//            int x = 150 + (customer.getQueuePosition() * 30);
-//            int y = 160;
-//
-//            // Draw customer
-//            gc.drawImage(customerImage, x, y, 20, 40);
+            drawBaseElements();
+            drawCustomerQueues(controller.convertQueueStatusToSigns(queueStatus));
+        });
+    }
+    private void drawBaseElements() {
+        GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
 
-//        }
-//    }
+        // Canvas with background color
+        gc.setFill(Color.GRAY);
+        gc.fillRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
 
-//    private void redrawSimulation() {
-//        GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
-//        gc.setFill(Color.GRAY);
-//        gc.fillRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
-//    }
+        // Queue automat
+        Image automate = new Image(getClass().getResource("/QueueAutomate.png").toExternalForm());
+        gc.drawImage(automate, 100, 160, 40, 60);
 
+        // Bank tellers
+        Image teller = new Image(getClass().getResource("/Teller.png").toExternalForm());
+        int tellerWidth = 50;
+        int tellerHeight = 60;
+        int tellerX = 500;
+        int startY = 50;
+        int spacing = 70;
+
+        // Draw all 4 tellers
+        for(int i = 0; i < 4; i++) {
+            gc.drawImage(teller, tellerX, startY + (spacing * i), tellerWidth, tellerHeight);
+        }
+    }
+
+    private void drawCustomerQueues(Map<String, List<Integer>> queueStatus) {
+        System.out.println("Drawing queues with status: " + queueStatus);
+        GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
+
+        List<Integer> automatQueue = queueStatus.get("automat");
+        int startX = 50;
+        int startY = 170;
+        System.out.println("Automat queue: " + automatQueue);
+        drawQueueDots(gc, automatQueue, startX, startY, true);
+
+        for(int i = 1; i <= 3; i++) {
+            List<Integer> tellerQueue = queueStatus.get("teller" + i);
+            System.out.println("Teller " + i + " queue: " + tellerQueue);
+            drawQueueDots(gc, tellerQueue, 450, 70 + (70 * (i-1)), true);
+        }
+
+        List<Integer> accountQueue = queueStatus.get("account");
+        System.out.println("Account queue: " + accountQueue);
+        drawQueueDots(gc, accountQueue, 450, 280, true);
+    }
+
+
+    private void drawCustomerDot(GraphicsContext gc, int clientSign, int x, int y) {
+        gc.setFill(clientSign == 1 ? Color.BLUE : Color.RED);
+        gc.fillOval(x, y, 10, 10);
+    }
+
+    private void drawQueueDots(GraphicsContext gc, List<Integer> clientSigns, int startX, int startY, boolean horizontal) {
+        if (clientSigns == null) return;
+
+        for (int i = 0; i < clientSigns.size(); i++) {
+            int x = startX - (i * 20);
+            int y = startY;
+            drawCustomerDot(gc, clientSigns.get(i), x, y);
+        }
+    }
 
 
 

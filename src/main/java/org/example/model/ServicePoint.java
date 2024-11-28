@@ -7,9 +7,9 @@ import org.example.framework.EventList;
 import org.example.framework.Trace;
 
 import java.util.LinkedList;
+import java.util.List;
 
-// TODO:
-// Service Point functionalities & calculations (+ variables needed) and reporting to be implemented
+
 public class ServicePoint {
 	private LinkedList<Customer> queue = new LinkedList<>(); // Data Structure used
 	private ContinuousGenerator generator;
@@ -54,7 +54,9 @@ public class ServicePoint {
 
 		return queue.poll();
 	}
-
+	public List<Customer> getQueueCustomers() {
+		return new LinkedList<>(queue);
+	}
 	public boolean isReserved(){
 		return reserved;
 	}

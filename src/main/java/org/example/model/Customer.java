@@ -11,11 +11,6 @@ public class Customer {
 	private static int i = 1;
 	private static long sum = 0;
 
-//	public enum CustomerType {
-//		TRANSACTION_CLIENT, // For deposits/withdrawals
-//		ACCOUNT_CLIENT     // For account operations
-//	}
-
 	public Customer(CustomerType type){
 		this.type = type;
 		id = i++;
