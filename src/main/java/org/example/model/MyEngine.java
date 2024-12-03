@@ -20,23 +20,26 @@ public class MyEngine extends Engine {
 	private ServicePoint accountTeller;
 	private Map<String, List<Customer>> queueStatus = new HashMap<>();
 	private SimulatorController controller;
+	private final int numberOfStations;
+	private double arrivalInterval = 5.0;
 
 
 
 	public MyEngine(SimulatorController controller) {
 		this.controller = controller;
+		this.numberOfStations = controller.getNumberOfStations();
 		// Initialize queue number automat (very fast service, mean=1 min, std=0.5)
 		queueAutomat = new ServicePoint(
-				new Normal(2, 0.5),
+				new Normal(1, 1),
 				eventList,
 				EventType.DEP_AUTOMAT
 		);
 
-		// Initialize 3 transaction tellers (mean=10 min, std=5)
-		transactionTellers = new ServicePoint[3];
-		for(int i = 0; i < 3; i++) {
+
+		transactionTellers = new ServicePoint[numberOfStations];
+		for(int i = 0; i < numberOfStations; i++) {
 			transactionTellers[i] = new ServicePoint(
-					new Normal(20, 5),
+					new Normal(10, 5),
 					eventList,
 					EventType.valueOf("DEP_TELLER" + (i+1))
 			);
@@ -44,9 +47,9 @@ public class MyEngine extends Engine {
 
 		// Initialize account operations teller (mean=20 min, std=10)
 		accountTeller = new ServicePoint(
-				new Normal(40, 10),
+				new Normal(15, 15),
 				eventList,
-				EventType.DEP_TELLER4
+				EventType.DEP_ACCOUNT
 		);
 
 		// Customer arrivals follow negative exponential distribution (mean=3 min)
@@ -58,71 +61,102 @@ public class MyEngine extends Engine {
 
 	}
 
+	public void setArrivalInterval(double interval) {
+		this.arrivalInterval = interval;
+		// Update arrival process with new interval and generate next event
+		arrivalProcess = new ArrivalProcess(
+				new Negexp(arrivalInterval),
+				eventList,
+				EventType.ARR_AUTOMAT
+		);
+		arrivalProcess.generateNextEvent();  // Generate the next event immediately
+	}
+
+
 	@Override
 	protected void initialize() {
+		arrivalProcess = new ArrivalProcess(
+				new Negexp(arrivalInterval),
+				eventList,
+				EventType.ARR_AUTOMAT
+		);
 		arrivalProcess.generateNextEvent();
 	}
 
 	@Override
 	protected void runEvent(Event t) {
+		while (isPaused()) {
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+		}
+		long sleepTime = Math.max(0, controller.getSleepTime()); // Ensure non-negative value
+		try {
+			Thread.sleep(sleepTime);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return;
+		}
 		try {
 			Thread.sleep(controller.getSleepTime());
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
 		Customer a;
+		EventType eventType = (EventType)t.getType();
 
-		switch ((EventType)t.getType()) {
+		switch (eventType) {
 			case ARR_AUTOMAT:
-				// Customer arrives at queue automat
 				CustomerType type = new Poisson(0.2).sample() == 0 ?
 						CustomerType.TRANSACTION_CLIENT :
 						CustomerType.ACCOUNT_CLIENT;
 				System.out.println("Customer arrived: " + type);
 				Customer newCustomer = new Customer(type);
 				queueAutomat.addQueue(newCustomer);
-				arrivalProcess.generateNextEvent();
+				// Generate next arrival using current arrivalInterval
+				Event nextArrival = new Event(EventType.ARR_AUTOMAT,
+						Clock.getInstance().getClock() + new Negexp(arrivalInterval).sample());
+				eventList.add(nextArrival);
 				updateQueueStatus();
 				break;
 
 			case DEP_AUTOMAT:
-				// Customer gets queue number and moves to appropriate queue
 				a = queueAutomat.removeQueue();
-				if(a.getType() == CustomerType.TRANSACTION_CLIENT) {
-					ServicePoint bestTeller = findShortestQueue(transactionTellers);
-					bestTeller.addQueue(a);
-				} else {
-					accountTeller.addQueue(a);
+				if (a != null) {
+					if(a.getType() == CustomerType.TRANSACTION_CLIENT) {
+						ServicePoint bestTeller = findShortestQueue(transactionTellers);
+						bestTeller.addQueue(a);
+					} else {
+						accountTeller.addQueue(a);
+					}
 				}
 				updateQueueStatus();
 				break;
 
-			case DEP_TELLER1:
-				a = transactionTellers[0].removeQueue();
-				a.setRemovalTime(Clock.getInstance().getClock());
-				a.reportResults();
-				updateQueueStatus();
-				break;
-
-			case DEP_TELLER2:
-				a = transactionTellers[1].removeQueue();
-				a.setRemovalTime(Clock.getInstance().getClock());
-				a.reportResults();
-				updateQueueStatus();
-				break;
-
-			case DEP_TELLER3:
-				a = transactionTellers[2].removeQueue();
-				a.setRemovalTime(Clock.getInstance().getClock());
-				a.reportResults();
-				updateQueueStatus();
-				break;
-
-			case DEP_TELLER4:
+			case DEP_ACCOUNT:  // Separate case for account teller
 				a = accountTeller.removeQueue();
-				a.setRemovalTime(Clock.getInstance().getClock());
-				a.reportResults();
+				if (a != null) {
+					a.setRemovalTime(Clock.getInstance().getClock());
+					a.reportResults();
+				}
 				updateQueueStatus();
+				break;
+
+			default:
+				if (eventType.toString().startsWith("DEP_TELLER")) {
+					int tellerIndex = Integer.parseInt(eventType.toString().substring(10)) - 1;
+					if (tellerIndex < transactionTellers.length) {
+						a = transactionTellers[tellerIndex].removeQueue();
+						if (a != null) {
+							a.setRemovalTime(Clock.getInstance().getClock());
+							a.reportResults();
+						}
+					}
+					updateQueueStatus();
+				}
 				break;
 		}
 	}
@@ -147,21 +181,33 @@ public class MyEngine extends Engine {
 		}
 	}
 
+
+
+
 	@Override
 	protected void results() {
-		System.out.println("\n========= Simulation Results =========");
-		System.out.println("Simulation ended at: " + Clock.getInstance().getClock());
+		StringBuilder stats = new StringBuilder();
+		stats.append("\n========= Simulation Results =========\n");
+		stats.append("Simulation ended at: " + Clock.getInstance().getClock() + "\n");
 
-		System.out.println("\nQueue Automat Statistics:");
-		printServicePointStats(queueAutomat, "Queue Automat");
+		stats.append("\nQueue Automat Statistics:\n");
+		stats.append(getServicePointStats(queueAutomat, "Queue Automat"));
 
-		System.out.println("\nTransaction Tellers Statistics:");
+		stats.append("\nTransaction Tellers Statistics:\n");
 		for(int i = 0; i < transactionTellers.length; i++) {
-			printServicePointStats(transactionTellers[i], "Teller " + (i+1));
+			stats.append(getServicePointStats(transactionTellers[i], "Teller " + (i+1)));
 		}
 
-		System.out.println("\nAccount Operations Teller Statistics:");
-		printServicePointStats(accountTeller, "Account Teller");
+		stats.append("\nAccount Operations Teller Statistics:\n");
+		stats.append(getServicePointStats(accountTeller, "Account Teller"));
+
+		controller.onSimulationComplete(stats.toString());
+	}
+
+	private String getServicePointStats(ServicePoint sp, String name) {
+		return name + ":\n" +
+				"  Average Service Time: " + sp.getAverageServiceTime() + "\n" +
+				"  Average Queue Time: " + sp.getAverageQueueTime() + "\n";
 	}
 
 	private ServicePoint findShortestQueue(ServicePoint[] points) {
@@ -178,9 +224,11 @@ public class MyEngine extends Engine {
 		System.out.println("Engine updating queue status");
 		queueStatus.clear();
 		queueStatus.put("automat", queueAutomat.getQueueCustomers());
-		queueStatus.put("teller1", transactionTellers[0].getQueueCustomers());
-		queueStatus.put("teller2", transactionTellers[1].getQueueCustomers());
-		queueStatus.put("teller3", transactionTellers[2].getQueueCustomers());
+
+		for(int i = 0; i < transactionTellers.length; i++) {
+			queueStatus.put("teller" + (i+1), transactionTellers[i].getQueueCustomers());
+		}
+
 		queueStatus.put("account", accountTeller.getQueueCustomers());
 
 		System.out.println("Current queue status: " + queueStatus);

@@ -10,6 +10,7 @@ public abstract class Engine {
 	private Clock clock;				// to simplify the code (clock.getClock() instead Clock.getInstance().getClock())
 	protected EventList eventList;		// events to be processed are stored here
 	protected QueueUpdateListener queueUpdateListener;
+	protected boolean isPaused = false;
 
 	public interface QueueUpdateListener {
 		void onQueueUpdate(Map<String, List<Customer>> queueStatus);
@@ -53,7 +54,13 @@ public abstract class Engine {
 			runEvent(eventList.remove());
 		}
 	}
+	public boolean isPaused() {
+		return isPaused;
+	}
 
+	public void setPaused(boolean paused) {
+		this.isPaused = paused;
+	}
 	private double currentTime(){
 		return eventList.getNextEventTime();
 	}

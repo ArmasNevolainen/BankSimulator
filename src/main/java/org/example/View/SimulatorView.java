@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 public class SimulatorView extends Application {
+    private boolean isSimulationComplete = false;
     private SimulatorController controller = new SimulatorController(this);
     private Button startButton = new Button("Start");
     private Button pauseButton = new Button("Pause");
@@ -30,6 +31,9 @@ public class SimulatorView extends Application {
     private Label intervalLabel = new Label("Client Arrival Interval:");
     private TextArea statusArea = new TextArea();
     private Canvas simulationCanvas;
+    private Label simulationStatusLabel = new Label("Status: Ready");
+    private VBox statsPanel = new VBox(10);
+    private int margin = 50;
 
     @Override
     public void start(Stage stage) {
@@ -58,13 +62,15 @@ public class SimulatorView extends Application {
 
         speedSlider.setShowTickLabels(true);
         speedSlider.setShowTickMarks(true);
-        stationsSelector.getItems().addAll("3 Stations", "4 Stations", "5 Stations", "6 Stations", "7 Stations", "8 Stations");
+        stationsSelector.getItems().addAll("3 Stations", "4 Stations", "5 Stations", "6 Stations", "7 Stations");
         stationsSelector.setValue("3 Stations");
         intervalSlider.setShowTickLabels(true);
         intervalSlider.setShowTickMarks(true);
         intervalSlider.setMajorTickUnit(1);
         intervalSlider.setBlockIncrement(1);
         intervalSlider.setSnapToTicks(true);
+        simulationStatusLabel.setStyle("-fx-font-weight: bold;");
+        topContainer.getChildren().add(simulationStatusLabel);
 
         settingsPanel.getChildren().addAll(
                 new Label("Simulation Settings: "),
@@ -102,13 +108,23 @@ public class SimulatorView extends Application {
         stage.setTitle("Simulation Control Panel");
         stage.setScene(scene);
 
+        // Stats panel
+        statsPanel.setPadding(new Insets(10));
+        statsPanel.setPrefWidth(200);
+        statsPanel.setStyle("-fx-background-color: #f0f0f0;");
+        mainLayout.setRight(statsPanel);
+
+
         // Initial draw
         drawBaseElements();
 
         stage.show();
 
         startButton.setOnAction(e -> controller.startSimulation());
-        pauseButton.setOnAction(e -> controller.pauseSimulation());
+        pauseButton.setOnAction(e -> {
+            controller.pauseSimulation();
+            updatePauseButton(pauseButton.getText().equals("Pause"));
+        });
         resetButton.setOnAction(e -> controller.resetSimulation());
 
         speedSlider.valueProperty().addListener((obs, oldVal, newVal) ->
@@ -117,12 +133,20 @@ public class SimulatorView extends Application {
         stationsSelector.valueProperty().addListener((obs, oldVal, newVal) ->
                 controller.setNumberOfStations(Integer.parseInt(newVal.split(" ")[0])));
 
-        intervalSlider.valueProperty().addListener((obs, oldVal, newVal) ->
-                controller.setArrivalInterval(newVal.doubleValue()));
+        intervalSlider.setOnMouseReleased(event ->
+                controller.setArrivalInterval(intervalSlider.getValue())
+        );
+    }
+
+    public boolean isSimulationComplete() {
+        return simulationStatusLabel.getText().contains("Complete");
     }
 
     public void updateQueueVisualization(Map<String, List<Customer>> queueStatus) {
         Platform.runLater(() -> {
+            if (isSimulationComplete()) {
+                return;
+            }
             GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
             gc.clearRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
 
@@ -132,48 +156,61 @@ public class SimulatorView extends Application {
     }
     private void drawBaseElements() {
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
+        double canvasHeight = simulationCanvas.getHeight();
+        int activeStations = controller.getNumberOfStations();
+        int tellerWidth = 50;
+        int tellerHeight = 60;
+        int tellerX = 500;
 
-        // Canvas with background color
+        double totalSpace = canvasHeight - 2 * margin - tellerHeight;
+        double spacing = totalSpace / (activeStations - 1);
+
+        // Canvas background
         gc.setFill(Color.GRAY);
         gc.fillRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
 
         // Queue automat
         Image automate = new Image(getClass().getResource("/QueueAutomate.png").toExternalForm());
-        gc.drawImage(automate, 100, 160, 40, 60);
+        gc.drawImage(automate, 200, 160, 40, 60);
 
-        // Bank tellers
+        // Bank tellers with dynamic spacing
         Image teller = new Image(getClass().getResource("/Teller.png").toExternalForm());
-        int tellerWidth = 50;
-        int tellerHeight = 60;
-        int tellerX = 500;
-        int startY = 50;
-        int spacing = 70;
-
-        // Draw all 4 tellers
-        for(int i = 0; i < 4; i++) {
-            gc.drawImage(teller, tellerX, startY + (spacing * i), tellerWidth, tellerHeight);
+        for(int i = 0; i < activeStations; i++) {
+            int yPosition = margin + (int)(spacing * i);
+            gc.drawImage(teller, tellerX, yPosition, tellerWidth, tellerHeight);
         }
+        Image accountTeller = new Image(getClass().getResource("/accountTeller.png").toExternalForm());
+        gc.drawImage(accountTeller, tellerX, canvasHeight - margin - tellerHeight, tellerWidth, tellerHeight);
     }
 
     private void drawCustomerQueues(Map<String, List<Integer>> queueStatus) {
-        System.out.println("Drawing queues with status: " + queueStatus);
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
+        double canvasHeight = simulationCanvas.getHeight();
+        int activeStations = controller.getNumberOfStations();
 
+        double totalSpace = canvasHeight - 2 * margin - 60;
+        double spacing = totalSpace / (activeStations - 1);
+
+        // Draw automat queue
         List<Integer> automatQueue = queueStatus.get("automat");
-        int startX = 50;
-        int startY = 170;
-        System.out.println("Automat queue: " + automatQueue);
-        drawQueueDots(gc, automatQueue, startX, startY, true);
-
-        for(int i = 1; i <= 3; i++) {
-            List<Integer> tellerQueue = queueStatus.get("teller" + i);
-            System.out.println("Teller " + i + " queue: " + tellerQueue);
-            drawQueueDots(gc, tellerQueue, 450, 70 + (70 * (i-1)), true);
+        if (automatQueue != null) {
+            drawQueueDots(gc, automatQueue, 150, 180, true);
         }
 
+        // Draw teller queues starting at topMargin
+        for(int i = 1; i <= activeStations; i++) {
+            List<Integer> tellerQueue = queueStatus.get("teller" + i);
+            if (tellerQueue != null) {
+                int yPosition = margin + (int)(spacing * (i-1));
+                drawQueueDots(gc, tellerQueue, 450, yPosition, true);
+            }
+        }
+
+        // Draw account queue exactly at bottom margin
         List<Integer> accountQueue = queueStatus.get("account");
-        System.out.println("Account queue: " + accountQueue);
-        drawQueueDots(gc, accountQueue, 450, 280, true);
+        if (accountQueue != null) {
+            drawQueueDots(gc, accountQueue, 450, (int)(canvasHeight - margin - 50), true);
+        }
     }
 
 
@@ -187,10 +224,42 @@ public class SimulatorView extends Application {
 
         for (int i = 0; i < clientSigns.size(); i++) {
             int x = startX - (i * 20);
-            int y = startY;
+            int y = startY+10;
             drawCustomerDot(gc, clientSigns.get(i), x, y);
         }
     }
+
+    public void showSimulationComplete() {
+        simulationStatusLabel.setText("Status: Simulation Complete");
+        startButton.setDisable(true);
+        pauseButton.setDisable(true);
+
+        // Enable reset button to start new simulation
+        resetButton.setDisable(false);
+    }
+    public void showSimulationReset() {
+        startButton.setDisable(false);
+        pauseButton.setDisable(false);
+        simulationStatusLabel.setText("Status: Ready");
+        updateStatistics("");
+    }
+
+    public void updateStatistics(String stats) {
+        statsPanel.getChildren().clear();
+        statsPanel.getChildren().add(new Label(stats));
+    }
+    public void setSimulationStatus(String status) {
+        simulationStatusLabel.setText(status);
+    }
+
+    // Add this method to update the pause button text based on simulation state
+    public void updatePauseButton(boolean isPaused) {
+        Platform.runLater(() -> {
+            pauseButton.setText(isPaused ? "Resume" : "Pause");
+        });
+    }
+
+
 
 
 
