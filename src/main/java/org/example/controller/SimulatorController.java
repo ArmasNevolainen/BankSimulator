@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 public class SimulatorController {
     private SimulatorView view;
     private MyEngine engine;
@@ -164,6 +167,32 @@ public class SimulatorController {
 
     public double getArrivalInterval() {
         return arrivalInterval;
+    }
+
+    public class SimulationStatistics {
+    private AtomicInteger totalCustomersServed = new AtomicInteger(0);
+    private AtomicLong totalWaitTime = new AtomicLong(0);
+    private AtomicInteger maxQueueLength = new AtomicInteger(0);
+
+    public void customerServed(long waitTime) {
+        totalCustomersServed.incrementAndGet();
+        totalWaitTime.addAndGet(waitTime);
+    }
+
+    public void updateQueueLength(int queueLength) {
+        maxQueueLength.updateAndGet(max -> Math.max(max, queueLength));
+    }
+
+    public int getTotalCustomersServed() {
+        return totalCustomersServed.get();
+    }
+
+    public long getTotalWaitTime() {
+        return totalWaitTime.get();
+    }
+
+    public int getMaxQueueLength() {
+        return maxQueueLength.get();
     }
 
 
