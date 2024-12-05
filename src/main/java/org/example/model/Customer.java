@@ -6,6 +6,7 @@ import org.example.framework.Trace;
 public class Customer {
 	private double arrivalTime;
 	private double removalTime;
+	private double queueStartTime;
 	private int id;
 	private CustomerType type;
 	private static int i = 1;
@@ -36,11 +37,17 @@ public class Customer {
 	public void setArrivalTime(double arrivalTime) {
 		this.arrivalTime = arrivalTime;
 	}
+	public void setQueueStartTime(double time) {
+		this.queueStartTime = time;
+	}
+	public double getQueueStartTime() {
+		return queueStartTime;
+	}
 
 	public int getId() {
 		return id;
 	}
-	
+
 	public void reportResults(){
 		Trace.out(Trace.Level.INFO, "\nCustomer " + id + " ready! ");
 		Trace.out(Trace.Level.INFO, "Customer "   + id + " arrived: " + arrivalTime);

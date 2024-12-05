@@ -110,7 +110,21 @@ public class MyEngine extends Engine {
 
 		switch (eventType) {
 			case ARR_AUTOMAT:
-				CustomerType type = new Poisson(0.2).sample() == 0 ?
+				double poissonMean;
+				double percentage = controller.getClientDistribution();
+
+				// Map percentage to appropriate Poisson mean values
+				if (percentage >= 90) poissonMean = 0.01;
+				else if (percentage >= 80) poissonMean = 0.1;
+				else if (percentage >= 70) poissonMean = 0.3;
+				else if (percentage >= 60) poissonMean = 0.5;
+				else if (percentage >= 50) poissonMean = 0.7;
+				else if (percentage >= 40) poissonMean = 0.9;
+				else if (percentage >= 30) poissonMean = 1.1;
+				else if (percentage >= 20) poissonMean = 1.3;
+				else poissonMean = 1.5;
+
+				CustomerType type = new Poisson(poissonMean).sample() == 0 ?
 						CustomerType.TRANSACTION_CLIENT :
 						CustomerType.ACCOUNT_CLIENT;
 				System.out.println("Customer arrived: " + type);

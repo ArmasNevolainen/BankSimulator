@@ -9,16 +9,16 @@ import org.example.framework.Trace;
 import java.util.LinkedList;
 import java.util.List;
 
-
 public class ServicePoint {
-	private LinkedList<Customer> queue = new LinkedList<>(); // Data Structure used
+	private LinkedList<Customer> queue = new LinkedList<>();
 	private ContinuousGenerator generator;
 	private EventList eventList;
 	private EventType eventTypeScheduled;
 	private double serviceStartTime;
 	private boolean reserved = false;
-	private double queueStartTime;
-
+	private int servedCustomers = 0;
+	private double totalServiceTime = 0;
+	private double totalQueueTime = 0;
 
 	public ServicePoint(ContinuousGenerator generator, EventList eventList, EventType type){
 		this.eventList = eventList;
@@ -27,36 +27,33 @@ public class ServicePoint {
 	}
 
 	public void addQueue(Customer a) {
-		queueStartTime = Clock.getInstance().getClock();
+		a.setQueueStartTime(Clock.getInstance().getClock());
 		queue.add(a);
 	}
 
 	public void beginService() {
-		Trace.out(Trace.Level.INFO, "Starting a new service for the customer #" + queue.peek().getId());
+		Customer customer = queue.peek();
+		Trace.out(Trace.Level.INFO, "Starting a new service for the customer #" + customer.getId());
 
-		// Calculate and store queue time when service begins
-		double queueTime = Clock.getInstance().getClock() - queueStartTime;
-		totalQueueTime += queueTime;
-
+		totalQueueTime += Clock.getInstance().getClock() - customer.getQueueStartTime();
 		serviceStartTime = Clock.getInstance().getClock();
 		reserved = true;
 		double serviceTime = generator.sample();
 
-		eventList.add(new Event(eventTypeScheduled, Clock.getInstance().getClock()+serviceTime));
+		eventList.add(new Event(eventTypeScheduled, Clock.getInstance().getClock() + serviceTime));
 	}
 
 	public Customer removeQueue() {
 		reserved = false;
-		// Calculate and store service time when customer leaves
-		double serviceTime = Clock.getInstance().getClock() - serviceStartTime;
-		totalServiceTime += serviceTime;
-		totalCustomers++;
-
+		servedCustomers++;
+		totalServiceTime += Clock.getInstance().getClock() - serviceStartTime;
 		return queue.poll();
 	}
+
 	public List<Customer> getQueueCustomers() {
 		return new LinkedList<>(queue);
 	}
+
 	public boolean isReserved(){
 		return reserved;
 	}
@@ -69,22 +66,11 @@ public class ServicePoint {
 		return queue.size();
 	}
 
-	// Add statistics tracking
-	private int totalCustomers = 0;
-	private double totalServiceTime = 0;
-	private double totalQueueTime = 0;
-
-	public void addStatistics(double serviceTime, double queueTime) {
-		totalCustomers++;
-		totalServiceTime += serviceTime;
-		totalQueueTime += queueTime;
-	}
-
 	public double getAverageServiceTime() {
-		return totalCustomers > 0 ? totalServiceTime/totalCustomers : 0;
+		return servedCustomers > 0 ? totalServiceTime / servedCustomers : 0;
 	}
 
 	public double getAverageQueueTime() {
-		return totalCustomers > 0 ? totalQueueTime/totalCustomers : 0;
+		return servedCustomers > 0 ? totalQueueTime / servedCustomers : 0;
 	}
 }

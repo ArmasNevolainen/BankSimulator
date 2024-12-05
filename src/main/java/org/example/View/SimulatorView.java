@@ -25,6 +25,7 @@ public class SimulatorView extends Application {
     private Button pauseButton = new Button("Pause");
     private Button resetButton = new Button("Reset");
     private Slider speedSlider = new Slider(0, 100, 50);
+    private Slider clientDistributionSlider = new Slider(0, 100, 80);
     private Label speedLabel = new Label("Simulation Speed:");
     private ComboBox<String> stationsSelector = new ComboBox<>();
     private Slider intervalSlider = new Slider(1, 10, 5);
@@ -32,11 +33,23 @@ public class SimulatorView extends Application {
     private TextArea statusArea = new TextArea();
     private Canvas simulationCanvas;
     private Label simulationStatusLabel = new Label("Status: Ready");
-    private VBox statsPanel = new VBox(10);
+    private ScrollPane statsScrollPane = new ScrollPane();
+    private VBox statsPanel = new VBox(5);
     private int margin = 50;
+    //Images
+    private Image automate;
+    private Image teller;
+    private Image accountTeller;
+    private Image accountClient;
+    private Image transactionClient;
 
     @Override
     public void start(Stage stage) {
+        automate = new Image(getClass().getResource("/QueueAutomate.png").toExternalForm());
+        teller = new Image(getClass().getResource("/Teller.png").toExternalForm());
+        accountTeller = new Image(getClass().getResource("/accountTeller.png").toExternalForm());
+        accountClient = new Image(getClass().getResource("/AClient.png").toExternalForm());
+        transactionClient = new Image(getClass().getResource("/TClient.png").toExternalForm());
         BorderPane mainLayout = new BorderPane();
         VBox topContainer = new VBox();
         topContainer.setAlignment(Pos.CENTER);
@@ -60,6 +73,13 @@ public class SimulatorView extends Application {
         settingsPanel.setPadding(new Insets(10));
         settingsPanel.setPrefWidth(200); // Fixed width for controls
 
+        // Sliders
+        clientDistributionSlider.setShowTickLabels(true);
+        clientDistributionSlider.setShowTickMarks(true);
+        clientDistributionSlider.setMajorTickUnit(10);
+        clientDistributionSlider.setMinorTickCount(1);
+        clientDistributionSlider.setSnapToTicks(true);
+        clientDistributionSlider.setValue(80);
         speedSlider.setShowTickLabels(true);
         speedSlider.setShowTickMarks(true);
         stationsSelector.getItems().addAll("3 Stations", "4 Stations", "5 Stations", "6 Stations", "7 Stations");
@@ -79,7 +99,9 @@ public class SimulatorView extends Application {
                 new Label("Stations:"),
                 stationsSelector,
                 intervalLabel,
-                intervalSlider
+                intervalSlider,
+                new Label("Transaction Clients %:"),
+                clientDistributionSlider
         );
         // Canvas
         simulationCanvas = new Canvas(650, 400);
@@ -104,28 +126,41 @@ public class SimulatorView extends Application {
         mainLayout.setCenter(canvasWrapper);
         mainLayout.setBottom(statusArea);
 
-        Scene scene = new Scene(mainLayout, 900, 600);
+        Scene scene = new Scene(mainLayout, 1200, 700);
         stage.setTitle("Simulation Control Panel");
         stage.setScene(scene);
 
         // Stats panel
         statsPanel.setPadding(new Insets(10));
-        statsPanel.setPrefWidth(200);
+        statsPanel.setPrefWidth(250);
         statsPanel.setStyle("-fx-background-color: #f0f0f0;");
-        mainLayout.setRight(statsPanel);
-
+        statsPanel.setPadding(new Insets(10, 20, 10, 10));
+        statsScrollPane.setPadding(new Insets(0, 10, 0, 0));
+        statsScrollPane.setContent(statsPanel);
+        statsScrollPane.setFitToWidth(true);
+        statsScrollPane.setPrefViewportWidth(250);
+        statsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        statsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        mainLayout.setRight(statsScrollPane);
 
         // Initial draw
         drawBaseElements();
 
         stage.show();
 
-        startButton.setOnAction(e -> controller.startSimulation());
+        startButton.setOnAction(e -> {
+            clientDistributionSlider.setDisable(true);
+            controller.setClientDistribution(clientDistributionSlider.getValue());
+            controller.startSimulation();
+        });
         pauseButton.setOnAction(e -> {
             controller.pauseSimulation();
             updatePauseButton(pauseButton.getText().equals("Pause"));
         });
-        resetButton.setOnAction(e -> controller.resetSimulation());
+        resetButton.setOnAction(e -> {
+            clientDistributionSlider.setDisable(false);
+            controller.resetSimulation();
+        });
 
         speedSlider.valueProperty().addListener((obs, oldVal, newVal) ->
                 controller.setSimulationSpeed(newVal.doubleValue()));
@@ -157,75 +192,96 @@ public class SimulatorView extends Application {
     private void drawBaseElements() {
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
         double canvasHeight = simulationCanvas.getHeight();
-        int activeStations = controller.getNumberOfStations();
-        int tellerWidth = 50;
-        int tellerHeight = 60;
+        int activeStations = controller.getNumberOfStations() + 1; // +1 for account teller
+        int tellerWidth = 40;
+        int tellerHeight = 50;
         int tellerX = 500;
 
-        double totalSpace = canvasHeight - 2 * margin - tellerHeight;
-        double spacing = totalSpace / (activeStations - 1);
+        // Calculate spacing to fit within visible area
+        double usableHeight = canvasHeight - (2 * margin) - tellerHeight;
+        double spacing = usableHeight / (activeStations - 1);
 
         // Canvas background
         gc.setFill(Color.GRAY);
         gc.fillRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
 
         // Queue automat
-        Image automate = new Image(getClass().getResource("/QueueAutomate.png").toExternalForm());
-        gc.drawImage(automate, 200, 160, 40, 60);
+        gc.drawImage(automate, 200, (canvasHeight - 50) / 2, 30, 50);
 
-        // Bank tellers with dynamic spacing
-        Image teller = new Image(getClass().getResource("/Teller.png").toExternalForm());
-        for(int i = 0; i < activeStations; i++) {
-            int yPosition = margin + (int)(spacing * i);
+        // Regular tellers
+        for(int i = 0; i < activeStations - 1; i++) {
+            double yPosition = margin + (spacing * i);
             gc.drawImage(teller, tellerX, yPosition, tellerWidth, tellerHeight);
         }
-        Image accountTeller = new Image(getClass().getResource("/accountTeller.png").toExternalForm());
+
+        // Account teller at the last position
         gc.drawImage(accountTeller, tellerX, canvasHeight - margin - tellerHeight, tellerWidth, tellerHeight);
     }
+
 
     private void drawCustomerQueues(Map<String, List<Integer>> queueStatus) {
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
         double canvasHeight = simulationCanvas.getHeight();
-        int activeStations = controller.getNumberOfStations();
+        int activeStations = controller.getNumberOfStations() + 1; // +1 for account teller
 
-        double totalSpace = canvasHeight - 2 * margin - 60;
-        double spacing = totalSpace / (activeStations - 1);
+        // Calculate same spacing as used for tellers
+        double usableHeight = canvasHeight - (2 * margin) - 50;
+        double spacing = usableHeight / (activeStations - 1);
 
-        // Draw automat queue
+        // Automat queue
         List<Integer> automatQueue = queueStatus.get("automat");
         if (automatQueue != null) {
-            drawQueueDots(gc, automatQueue, 150, 180, true);
+            drawQueueCustomers(gc, automatQueue, 150, (int)(canvasHeight - 50) / 2, true);
         }
 
-        // Draw teller queues starting at topMargin
-        for(int i = 1; i <= activeStations; i++) {
+        // Transaction teller queues
+        for(int i = 1; i <= controller.getNumberOfStations(); i++) {
             List<Integer> tellerQueue = queueStatus.get("teller" + i);
             if (tellerQueue != null) {
-                int yPosition = margin + (int)(spacing * (i-1));
-                drawQueueDots(gc, tellerQueue, 450, yPosition, true);
+                double yPosition = margin + (spacing * (i-1));
+                drawQueueCustomers(gc, tellerQueue, 450, (int)yPosition, true);
             }
         }
 
-        // Draw account queue exactly at bottom margin
+        // Account teller queue
         List<Integer> accountQueue = queueStatus.get("account");
         if (accountQueue != null) {
-            drawQueueDots(gc, accountQueue, 450, (int)(canvasHeight - margin - 50), true);
+            drawQueueCustomers(gc, accountQueue, 450, (int)(canvasHeight - margin - 50), true);
         }
     }
 
 
-    private void drawCustomerDot(GraphicsContext gc, int clientSign, int x, int y) {
-        gc.setFill(clientSign == 1 ? Color.BLUE : Color.RED);
+
+    private void drawCustomers(GraphicsContext gc, int clientSign, int x, int y) {
+        gc.drawImage(clientSign == 1 ? transactionClient : accountClient, x, y, 20, 40);
         gc.fillOval(x, y, 10, 10);
     }
 
-    private void drawQueueDots(GraphicsContext gc, List<Integer> clientSigns, int startX, int startY, boolean horizontal) {
+    private void drawQueueCustomers(GraphicsContext gc, List<Integer> clientSigns, int startX, int startY, boolean horizontal) {
         if (clientSigns == null) return;
 
-        for (int i = 0; i < clientSigns.size(); i++) {
-            int x = startX - (i * 20);
-            int y = startY+10;
-            drawCustomerDot(gc, clientSigns.get(i), x, y);
+        if (clientSigns.size() <= 10) {
+            for (int i = 0; i < clientSigns.size(); i++) {
+                int x = startX - (i * 20);
+                int y = startY + 10;
+                gc.drawImage(clientSigns.get(i) == 1 ? transactionClient : accountClient, x, y, 20, 40);
+            }
+        } else {
+            for (int i = 0; i < 9; i++) {
+                int x = startX - (i * 20);
+                int y = startY + 10;
+                gc.drawImage(clientSigns.get(i) == 1 ? transactionClient : accountClient, x, y, 20, 40);
+            }
+
+            int x = startX - (9 * 20);
+            int y = startY + 25;
+            gc.setFill(Color.BLACK);
+            gc.setStroke(Color.WHITE);
+            gc.setLineWidth(1.5);
+            gc.setFont(javafx.scene.text.Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 20));
+            String text = "+" + (clientSigns.size() - 9);
+            gc.strokeText(text, x, y);
+            gc.fillText(text, x, y);
         }
     }
 
@@ -245,8 +301,22 @@ public class SimulatorView extends Application {
     }
 
     public void updateStatistics(String stats) {
-        statsPanel.getChildren().clear();
-        statsPanel.getChildren().add(new Label(stats));
+        Platform.runLater(() -> {
+            statsPanel.getChildren().clear();
+
+            Label titleLabel = new Label("Simulation Statistics");
+            titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+            statsPanel.getChildren().add(titleLabel);
+
+            String[] statLines = stats.split("\n");
+            for (String line : statLines) {
+                Label statLabel = new Label(line);
+                statLabel.setWrapText(true);
+                statLabel.setMaxWidth(230);
+                statLabel.setStyle("-fx-padding: 2px 0;");
+                statsPanel.getChildren().add(statLabel);
+            }
+        });
     }
     public void setSimulationStatus(String status) {
         simulationStatusLabel.setText(status);

@@ -25,10 +25,19 @@ public class SimulatorController {
     private double arrivalInterval = 5.0;
     private long sleepTime = 100;// Default sleep time in milliseconds
     private double simulationTime = 1000.0;
+    private double clientDistributionPercentage = 80.0;
 
 
     public SimulatorController(SimulatorView view) {
         this.view = view;
+    }
+
+    public void setClientDistribution(double percentage) {
+        this.clientDistributionPercentage = percentage;
+    }
+
+    public double getClientDistribution() {
+        return clientDistributionPercentage;
     }
 
     public void startSimulation() {
