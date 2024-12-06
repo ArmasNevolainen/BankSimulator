@@ -21,7 +21,10 @@ public class Customer {
 	public CustomerType getType() {
 		return type;
 	}
-
+	public static void resetCustomerCount() {
+		i = 1;
+		sum = 0;
+	}
 	public double getRemovalTime() {
 		return removalTime;
 	}

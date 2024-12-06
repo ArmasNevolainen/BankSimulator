@@ -26,6 +26,8 @@ public class SimulatorController {
     private long sleepTime = 100;// Default sleep time in milliseconds
     private double simulationTime = 1000.0;
     private double clientDistributionPercentage = 80.0;
+    private double transactionServiceTime = 10.0;
+    private double accountServiceTime = 15.0;
 
 
     public SimulatorController(SimulatorView view) {
@@ -41,6 +43,7 @@ public class SimulatorController {
     }
 
     public void startSimulation() {
+        Customer.resetCustomerCount();
         System.gc();
         System.out.println("Starting simulation...");
 
@@ -173,6 +176,21 @@ public class SimulatorController {
 
     public double getArrivalInterval() {
         return arrivalInterval;
+    }
+
+    public double getTransactionServiceTime() {
+        return transactionServiceTime;
+    }
+
+    public void setTransactionServiceTime(double time) {
+        this.transactionServiceTime = time;
+    }
+    public double getAccountServiceTime() {
+        return accountServiceTime;
+    }
+
+    public void setAccountServiceTime(double time) {
+        this.accountServiceTime = time;
     }
 
 

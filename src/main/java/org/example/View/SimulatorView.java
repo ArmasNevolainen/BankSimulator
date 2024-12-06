@@ -29,6 +29,8 @@ public class SimulatorView extends Application {
     private Label speedLabel = new Label("Simulation Speed:");
     private ComboBox<String> stationsSelector = new ComboBox<>();
     private Slider intervalSlider = new Slider(1, 10, 5);
+    private Slider serviceTimeSlider = new Slider(5, 30, 10);
+    private Slider accountServiceTimeSlider = new Slider(10, 60, 15);
     private Label intervalLabel = new Label("Client Arrival Interval:");
     private TextArea statusArea = new TextArea();
     private Canvas simulationCanvas;
@@ -90,6 +92,14 @@ public class SimulatorView extends Application {
         intervalSlider.setBlockIncrement(1);
         intervalSlider.setSnapToTicks(true);
         simulationStatusLabel.setStyle("-fx-font-weight: bold;");
+        serviceTimeSlider.setShowTickLabels(true);
+        serviceTimeSlider.setShowTickMarks(true);
+        serviceTimeSlider.setMajorTickUnit(5);
+        serviceTimeSlider.setBlockIncrement(1);
+        accountServiceTimeSlider.setShowTickLabels(true);
+        accountServiceTimeSlider.setShowTickMarks(true);
+        accountServiceTimeSlider.setMajorTickUnit(10);
+        accountServiceTimeSlider.setBlockIncrement(5);
         topContainer.getChildren().add(simulationStatusLabel);
 
         settingsPanel.getChildren().addAll(
@@ -101,7 +111,12 @@ public class SimulatorView extends Application {
                 intervalLabel,
                 intervalSlider,
                 new Label("Transaction Clients %:"),
-                clientDistributionSlider
+                clientDistributionSlider,
+                new Label("Transaction Service Time (min):"),
+                serviceTimeSlider,
+                new Label("Account Service Time (min):"),
+                accountServiceTimeSlider
+
         );
         // Canvas
         simulationCanvas = new Canvas(650, 400);
@@ -170,6 +185,9 @@ public class SimulatorView extends Application {
 
         intervalSlider.setOnMouseReleased(event ->
                 controller.setArrivalInterval(intervalSlider.getValue())
+        );
+        serviceTimeSlider.setOnMouseReleased(event ->
+                controller.setTransactionServiceTime(serviceTimeSlider.getValue())
         );
     }
 

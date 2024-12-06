@@ -39,15 +39,15 @@ public class MyEngine extends Engine {
 		transactionTellers = new ServicePoint[numberOfStations];
 		for(int i = 0; i < numberOfStations; i++) {
 			transactionTellers[i] = new ServicePoint(
-					new Normal(10, 5),
+					new Normal(controller.getTransactionServiceTime(), controller.getTransactionServiceTime()/2),
 					eventList,
 					EventType.valueOf("DEP_TELLER" + (i+1))
 			);
 		}
 
-		// Initialize account operations teller (mean=20 min, std=10)
+		// Initialize account operations teller
 		accountTeller = new ServicePoint(
-				new Normal(15, 15),
+				new Normal(controller.getAccountServiceTime(), controller.getAccountServiceTime()/2),
 				eventList,
 				EventType.DEP_ACCOUNT
 		);
