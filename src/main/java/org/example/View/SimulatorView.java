@@ -24,6 +24,7 @@ public class SimulatorView extends Application {
     private Button startButton = new Button("Start");
     private Button pauseButton = new Button("Pause");
     private Button resetButton = new Button("Reset");
+    private Slider simulationTimeSlider = new Slider(100, 2000, 1000);
     private Slider speedSlider = new Slider(0, 100, 50);
     private Slider clientDistributionSlider = new Slider(0, 100, 80);
     private Label speedLabel = new Label("Simulation Speed:");
@@ -60,7 +61,7 @@ public class SimulatorView extends Application {
         HBox controlPanel = new HBox(10);
         controlPanel.setPadding(new Insets(10));
         controlPanel.setAlignment(Pos.CENTER);
-        controlPanel.setMaxWidth(600); // Set a maximum width for the control panel
+        controlPanel.setMaxWidth(600);
 
         startButton.setPrefWidth(100);
         pauseButton.setPrefWidth(100);
@@ -76,6 +77,10 @@ public class SimulatorView extends Application {
         settingsPanel.setPrefWidth(200); // Fixed width for controls
 
         // Sliders
+        simulationTimeSlider.setShowTickLabels(true);
+        simulationTimeSlider.setShowTickMarks(true);
+        simulationTimeSlider.setMajorTickUnit(500);
+        simulationTimeSlider.setBlockIncrement(100);
         clientDistributionSlider.setShowTickLabels(true);
         clientDistributionSlider.setShowTickMarks(true);
         clientDistributionSlider.setMajorTickUnit(10);
@@ -84,7 +89,7 @@ public class SimulatorView extends Application {
         clientDistributionSlider.setValue(80);
         speedSlider.setShowTickLabels(true);
         speedSlider.setShowTickMarks(true);
-        stationsSelector.getItems().addAll("3 Stations", "4 Stations", "5 Stations", "6 Stations", "7 Stations");
+        stationsSelector.getItems().addAll("2 Stations", "3 Stations", "4 Stations", "5 Stations");
         stationsSelector.setValue("3 Stations");
         intervalSlider.setShowTickLabels(true);
         intervalSlider.setShowTickMarks(true);
@@ -103,7 +108,10 @@ public class SimulatorView extends Application {
         topContainer.getChildren().add(simulationStatusLabel);
 
         settingsPanel.getChildren().addAll(
+
                 new Label("Simulation Settings: "),
+                new Label("Simulation Time (min):"),
+                simulationTimeSlider,
                 speedLabel,
                 speedSlider,
                 new Label("Stations:"),
@@ -141,7 +149,7 @@ public class SimulatorView extends Application {
         mainLayout.setCenter(canvasWrapper);
         mainLayout.setBottom(statusArea);
 
-        Scene scene = new Scene(mainLayout, 1200, 700);
+        Scene scene = new Scene(mainLayout, 1200, 630);
         stage.setTitle("Simulation Control Panel");
         stage.setScene(scene);
 
@@ -165,6 +173,7 @@ public class SimulatorView extends Application {
 
         startButton.setOnAction(e -> {
             clientDistributionSlider.setDisable(true);
+            stationsSelector.setDisable(true);
             controller.setClientDistribution(clientDistributionSlider.getValue());
             controller.startSimulation();
         });
@@ -174,14 +183,22 @@ public class SimulatorView extends Application {
         });
         resetButton.setOnAction(e -> {
             clientDistributionSlider.setDisable(false);
+            stationsSelector.setDisable(false);
             controller.resetSimulation();
         });
+
+        simulationTimeSlider.valueProperty().addListener((obs, oldVal, newVal) ->
+                controller.setSimulationTime(newVal.doubleValue())
+        );
 
         speedSlider.valueProperty().addListener((obs, oldVal, newVal) ->
                 controller.setSimulationSpeed(newVal.doubleValue()));
 
-        stationsSelector.valueProperty().addListener((obs, oldVal, newVal) ->
-                controller.setNumberOfStations(Integer.parseInt(newVal.split(" ")[0])));
+        stationsSelector.valueProperty().addListener((obs, oldVal, newVal) -> {
+            int stations = Integer.parseInt(newVal.split(" ")[0]);
+            controller.setNumberOfStations(stations);
+            drawBaseElements();
+        });
 
         intervalSlider.setOnMouseReleased(event ->
                 controller.setArrivalInterval(intervalSlider.getValue())
@@ -189,6 +206,10 @@ public class SimulatorView extends Application {
         serviceTimeSlider.setOnMouseReleased(event ->
                 controller.setTransactionServiceTime(serviceTimeSlider.getValue())
         );
+        accountServiceTimeSlider.setOnMouseReleased(event ->
+                controller.setAccountServiceTime(accountServiceTimeSlider.getValue())
+        );
+
     }
 
     public boolean isSimulationComplete() {
@@ -224,7 +245,7 @@ public class SimulatorView extends Application {
         gc.fillRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
 
         // Queue automat
-        gc.drawImage(automate, 200, (canvasHeight - 50) / 2, 30, 50);
+        gc.drawImage(automate, 250, (canvasHeight - 50) / 2, 20, 40);
 
         // Regular tellers
         for(int i = 0; i < activeStations - 1; i++) {
@@ -249,7 +270,7 @@ public class SimulatorView extends Application {
         // Automat queue
         List<Integer> automatQueue = queueStatus.get("automat");
         if (automatQueue != null) {
-            drawQueueCustomers(gc, automatQueue, 150, (int)(canvasHeight - 50) / 2, true);
+            drawQueueCustomers(gc, automatQueue, 220, ((int)(canvasHeight - 50) / 2)-10, true);
         }
 
         // Transaction teller queues
@@ -257,14 +278,14 @@ public class SimulatorView extends Application {
             List<Integer> tellerQueue = queueStatus.get("teller" + i);
             if (tellerQueue != null) {
                 double yPosition = margin + (spacing * (i-1));
-                drawQueueCustomers(gc, tellerQueue, 450, (int)yPosition, true);
+                drawQueueCustomers(gc, tellerQueue, 470, (int)yPosition, true);
             }
         }
 
         // Account teller queue
         List<Integer> accountQueue = queueStatus.get("account");
         if (accountQueue != null) {
-            drawQueueCustomers(gc, accountQueue, 450, (int)(canvasHeight - margin - 50), true);
+            drawQueueCustomers(gc, accountQueue, 470, (int)(canvasHeight - margin - 50), true);
         }
     }
 
@@ -304,16 +325,18 @@ public class SimulatorView extends Application {
     }
 
     public void showSimulationComplete() {
-        simulationStatusLabel.setText("Status: Simulation Complete");
-        startButton.setDisable(true);
-        pauseButton.setDisable(true);
-
-        // Enable reset button to start new simulation
-        resetButton.setDisable(false);
+        Platform.runLater(() -> {
+            simulationStatusLabel.setText("Status: Simulation Complete");
+            statusArea.setText("Simulation Complete ");
+            startButton.setDisable(true);
+            pauseButton.setDisable(true);
+            resetButton.setDisable(false);
+        });
     }
     public void showSimulationReset() {
         startButton.setDisable(false);
         pauseButton.setDisable(false);
+        stationsSelector.setDisable(false);
         simulationStatusLabel.setText("Status: Ready");
         updateStatistics("");
     }
@@ -344,6 +367,12 @@ public class SimulatorView extends Application {
     public void updatePauseButton(boolean isPaused) {
         Platform.runLater(() -> {
             pauseButton.setText(isPaused ? "Resume" : "Pause");
+        });
+    }
+
+    public void updateStatusArea(int totalCustomers) {
+        Platform.runLater(() -> {
+            statusArea.setText("Simulation running...\nTotal customers served: " + totalCustomers);
         });
     }
 

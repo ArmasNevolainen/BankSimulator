@@ -54,7 +54,7 @@ public class SimulatorController {
         Trace.setTraceLevel(Trace.Level.INFO);
         engine = new MyEngine(this);
         engine.setQueueUpdateListener(newStatus -> updateQueueStatus(newStatus));
-        engine.setSimulationTime(1000);
+        engine.setSimulationTime(simulationTime);
 
         // Start new simulation thread
         simulationThread = new Thread(() -> {
@@ -65,7 +65,12 @@ public class SimulatorController {
         simulationThread.start();
     }
 
-
+    public void setSimulationTime(double time) {
+        this.simulationTime = time;
+        if (engine != null) {
+            engine.setSimulationTime(time);
+        }
+    }
 
     public void pauseSimulation() {
         engine.setPaused(!engine.isPaused());
@@ -91,16 +96,6 @@ public class SimulatorController {
 
     public void setNumberOfStations(int stations) {
         this.numberOfStations = stations;
-        if (engine != null) {
-            if (simulationThread != null) {
-                simulationThread.interrupt();
-            }
-            engine = new MyEngine(this);
-            engine.setQueueUpdateListener(newStatus -> updateQueueStatus(newStatus));
-            engine.setSimulationTime(1000);
-
-            startSimulation();
-        }
         updateStatus("Number of stations set to: " + stations);
     }
 
@@ -191,6 +186,10 @@ public class SimulatorController {
 
     public void setAccountServiceTime(double time) {
         this.accountServiceTime = time;
+    }
+
+    public void updateCustomerCount(int count) {
+        view.updateStatusArea(count);
     }
 
 

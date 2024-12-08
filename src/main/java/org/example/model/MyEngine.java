@@ -21,13 +21,17 @@ public class MyEngine extends Engine {
 	private Map<String, List<Customer>> queueStatus = new HashMap<>();
 	private SimulatorController controller;
 	private final int numberOfStations;
-	private double arrivalInterval = 5.0;
+	private double arrivalInterval;
+	private int totalCustomersServed = 0;
 
 
 
 	public MyEngine(SimulatorController controller) {
 		this.controller = controller;
 		this.numberOfStations = controller.getNumberOfStations();
+		this.arrivalInterval = controller.getArrivalInterval();
+
+
 		// Initialize queue number automat (very fast service, mean=1 min, std=0.5)
 		queueAutomat = new ServicePoint(
 				new Normal(1, 1),
@@ -52,9 +56,9 @@ public class MyEngine extends Engine {
 				EventType.DEP_ACCOUNT
 		);
 
-		// Customer arrivals follow negative exponential distribution (mean=3 min)
+		// Customer arrivals follow negative exponential distribution
 		arrivalProcess = new ArrivalProcess(
-				new Negexp(3),
+				new Negexp(controller.getArrivalInterval()),
 				eventList,
 				EventType.ARR_AUTOMAT
 		);
@@ -63,7 +67,6 @@ public class MyEngine extends Engine {
 
 	public void setArrivalInterval(double interval) {
 		this.arrivalInterval = interval;
-		// Update arrival process with new interval and generate next event
 		arrivalProcess = new ArrivalProcess(
 				new Negexp(arrivalInterval),
 				eventList,
@@ -155,6 +158,8 @@ public class MyEngine extends Engine {
 				if (a != null) {
 					a.setRemovalTime(Clock.getInstance().getClock());
 					a.reportResults();
+					totalCustomersServed++;
+					controller.updateCustomerCount(totalCustomersServed);
 				}
 				updateQueueStatus();
 				break;
@@ -167,6 +172,8 @@ public class MyEngine extends Engine {
 						if (a != null) {
 							a.setRemovalTime(Clock.getInstance().getClock());
 							a.reportResults();
+							totalCustomersServed++;
+							controller.updateCustomerCount(totalCustomersServed);
 						}
 					}
 					updateQueueStatus();
@@ -201,25 +208,31 @@ public class MyEngine extends Engine {
 	@Override
 	protected void results() {
 		StringBuilder stats = new StringBuilder();
-		stats.append("\n========= Simulation Results =========\n");
+		stats.append("\n=== Simulation Results ===\n");
 		stats.append("Simulation ended at: " + Clock.getInstance().getClock() + "\n");
+		stats.append("Total Customers Served: " + totalCustomersServed + "\n");
 
 		stats.append("\nQueue Automat Statistics:\n");
 		stats.append(getServicePointStats(queueAutomat, "Queue Automat"));
 
 		stats.append("\nTransaction Tellers Statistics:\n");
+		int totalTransactionCustomers = 0;
 		for(int i = 0; i < transactionTellers.length; i++) {
+			totalTransactionCustomers += transactionTellers[i].getServedCustomers();
 			stats.append(getServicePointStats(transactionTellers[i], "Teller " + (i+1)));
 		}
+		stats.append("Total Transaction Customers: " + totalTransactionCustomers + "\n");
 
 		stats.append("\nAccount Operations Teller Statistics:\n");
 		stats.append(getServicePointStats(accountTeller, "Account Teller"));
+		stats.append("Total Account Customers: " + accountTeller.getServedCustomers() + "\n");
 
 		controller.onSimulationComplete(stats.toString());
 	}
 
 	private String getServicePointStats(ServicePoint sp, String name) {
 		return name + ":\n" +
+				"  Customers Served: " + sp.getServedCustomers() + "\n" +
 				"  Average Service Time: " + sp.getAverageServiceTime() + "\n" +
 				"  Average Queue Time: " + sp.getAverageQueueTime() + "\n";
 	}

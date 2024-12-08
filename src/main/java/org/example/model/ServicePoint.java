@@ -73,4 +73,7 @@ public class ServicePoint {
 	public double getAverageQueueTime() {
 		return servedCustomers > 0 ? totalQueueTime / servedCustomers : 0;
 	}
+	public int getServedCustomers() {
+		return servedCustomers;
+	}
 }
