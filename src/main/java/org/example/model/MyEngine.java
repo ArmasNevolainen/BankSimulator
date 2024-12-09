@@ -116,7 +116,6 @@ public class MyEngine extends Engine {
 				double poissonMean;
 				double percentage = controller.getClientDistribution();
 
-				// Map percentage to appropriate Poisson mean values
 				if (percentage >= 90) poissonMean = 0.01;
 				else if (percentage >= 80) poissonMean = 0.1;
 				else if (percentage >= 70) poissonMean = 0.3;
@@ -133,7 +132,6 @@ public class MyEngine extends Engine {
 				System.out.println("Customer arrived: " + type);
 				Customer newCustomer = new Customer(type);
 				queueAutomat.addQueue(newCustomer);
-				// Generate next arrival using current arrivalInterval
 				Event nextArrival = new Event(EventType.ARR_AUTOMAT,
 						Clock.getInstance().getClock() + new Negexp(arrivalInterval).sample());
 				eventList.add(nextArrival);
@@ -153,7 +151,7 @@ public class MyEngine extends Engine {
 				updateQueueStatus();
 				break;
 
-			case DEP_ACCOUNT:  // Separate case for account teller
+			case DEP_ACCOUNT:
 				a = accountTeller.removeQueue();
 				if (a != null) {
 					a.setRemovalTime(Clock.getInstance().getClock());

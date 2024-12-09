@@ -4,6 +4,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -39,6 +40,7 @@ public class SimulatorView extends Application {
     private ScrollPane statsScrollPane = new ScrollPane();
     private VBox statsPanel = new VBox(5);
     private int margin = 50;
+    private ComboBox<String> resultsHistoryBox = new ComboBox<>();
     //Images
     private Image automate;
     private Image teller;
@@ -153,6 +155,11 @@ public class SimulatorView extends Application {
         stage.setTitle("Simulation Control Panel");
         stage.setScene(scene);
 
+        VBox historyPanel = new VBox(5);
+        Label historyLabel = new Label("Previous Results:");
+        resultsHistoryBox.setMaxWidth(230);
+        historyPanel.getChildren().addAll(historyLabel, resultsHistoryBox);
+        statsPanel.getChildren().add(0, historyPanel);
         // Stats panel
         statsPanel.setPadding(new Insets(10));
         statsPanel.setPrefWidth(250);
@@ -168,7 +175,7 @@ public class SimulatorView extends Application {
 
         // Initial draw
         drawBaseElements();
-
+        updateResultsHistory();
         stage.show();
 
         startButton.setOnAction(e -> {
@@ -209,6 +216,11 @@ public class SimulatorView extends Application {
         accountServiceTimeSlider.setOnMouseReleased(event ->
                 controller.setAccountServiceTime(accountServiceTimeSlider.getValue())
         );
+
+        resultsHistoryBox.setOnAction(e -> {
+            String selected = resultsHistoryBox.getValue();
+            loadHistoricalResults(selected);
+        });
 
     }
 
@@ -343,19 +355,29 @@ public class SimulatorView extends Application {
 
     public void updateStatistics(String stats) {
         Platform.runLater(() -> {
+            // Clear panel
             statsPanel.getChildren().clear();
 
-            Label titleLabel = new Label("Simulation Statistics");
-            titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-            statsPanel.getChildren().add(titleLabel);
+            // First add history section
+            Label historyLabel = new Label("Previous Results:");
+            historyLabel.setStyle("-fx-font-weight: bold;");
+            statsPanel.getChildren().add(historyLabel);
+            statsPanel.getChildren().add(resultsHistoryBox);
 
-            String[] statLines = stats.split("\n");
-            for (String line : statLines) {
-                Label statLabel = new Label(line);
-                statLabel.setWrapText(true);
-                statLabel.setMaxWidth(230);
-                statLabel.setStyle("-fx-padding: 2px 0;");
-                statsPanel.getChildren().add(statLabel);
+            // Then add current statistics if provided
+            if (stats != null && !stats.isEmpty()) {
+                Label titleLabel = new Label("Simulation Statistics");
+                titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+                statsPanel.getChildren().add(titleLabel);
+
+                String[] statLines = stats.split("\n");
+                for (String line : statLines) {
+                    Label statLabel = new Label(line);
+                    statLabel.setWrapText(true);
+                    statLabel.setMaxWidth(230);
+                    statLabel.setStyle("-fx-padding: 2px 0;");
+                    statsPanel.getChildren().add(statLabel);
+                }
             }
         });
     }
@@ -363,7 +385,6 @@ public class SimulatorView extends Application {
         simulationStatusLabel.setText(status);
     }
 
-    // Add this method to update the pause button text based on simulation state
     public void updatePauseButton(boolean isPaused) {
         Platform.runLater(() -> {
             pauseButton.setText(isPaused ? "Resume" : "Pause");
@@ -376,7 +397,25 @@ public class SimulatorView extends Application {
         });
     }
 
+    public void updateResultsHistory() {
+        Platform.runLater(() -> {
+            String currentSelection = resultsHistoryBox.getValue();
+            resultsHistoryBox.getItems().clear();
+            resultsHistoryBox.getItems().addAll(controller.getHistoricalResultTimestamps());
+            if (currentSelection != null && resultsHistoryBox.getItems().contains(currentSelection)) {
+                resultsHistoryBox.setValue(currentSelection);
+            }
+        });
+    }
 
+    private void loadHistoricalResults(String timestamp) {
+        if (timestamp != null) {
+            String results = controller.getResultsByTimestamp(timestamp);
+            if (!results.isEmpty()) {
+                updateStatistics(results);
+            }
+        }
+    }
 
 
 

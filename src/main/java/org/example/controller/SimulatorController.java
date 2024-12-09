@@ -1,14 +1,14 @@
 package org.example.controller;
 
-import javafx.scene.canvas.GraphicsContext;
 import org.example.View.SimulatorView;
+import org.example.database.DatabaseService;
 import org.example.framework.Clock;
-import org.example.framework.Engine;
 import org.example.framework.Trace;
 import org.example.model.Customer;
 import org.example.model.CustomerType;
 import org.example.model.MyEngine;
 import javafx.application.Platform;
+import org.example.model.SimulationResult;
 
 import java.util.HashMap;
 import java.util.List;
@@ -28,6 +28,7 @@ public class SimulatorController {
     private double clientDistributionPercentage = 80.0;
     private double transactionServiceTime = 10.0;
     private double accountServiceTime = 15.0;
+    private DatabaseService dbService = new DatabaseService();
 
 
     public SimulatorController(SimulatorView view) {
@@ -150,6 +151,7 @@ public class SimulatorController {
 
 
     public void onSimulationComplete(String stats) {
+        saveSimulationResults(stats);
         Platform.runLater(() -> {
             view.showSimulationComplete();
             view.updateStatistics(stats);
@@ -190,6 +192,31 @@ public class SimulatorController {
 
     public void updateCustomerCount(int count) {
         view.updateStatusArea(count);
+    }
+
+    public void saveSimulationResults(String stats) {
+        String timestamp = new java.sql.Timestamp(System.currentTimeMillis()).toString();
+        SimulationResult result = new SimulationResult(0, timestamp, stats);
+        dbService.saveSimulationResult(result);
+        view.updateResultsHistory();
+    }
+
+    public List<String> getHistoricalResultTimestamps() {
+        List<String> timestamps = dbService.getSimulationResults()
+                .stream()
+                .map(SimulationResult::getTimestamp)
+                .collect(Collectors.toList());
+        System.out.println("Retrieved timestamps: " + timestamps); // Debug print
+        return timestamps;
+    }
+
+    public String getResultsByTimestamp(String timestamp) {
+        return dbService.getSimulationResults()
+                .stream()
+                .filter(r -> r.getTimestamp().equals(timestamp))
+                .map(SimulationResult::getResults)
+                .findFirst()
+                .orElse("");
     }
 
 
