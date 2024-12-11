@@ -22,6 +22,7 @@ public class SimulatorController {
     private boolean isPaused = false;
     private double simulationSpeed = 1.0;
     private int numberOfStations = 3;
+    private int numberOfAccountStations = 1;
     private double arrivalInterval = 5.0;
     private long sleepTime = 100;// Default sleep time in milliseconds
     private double simulationTime = 1000.0;
@@ -101,6 +102,14 @@ public class SimulatorController {
     }
 
 
+
+    public void setStationNumbers(int accountStations, int transactionStations) {
+        this.numberOfAccountStations = accountStations;
+        this.numberOfStations = transactionStations;
+        updateStatus("Stations set to: " + transactionStations + " transaction, " + accountStations + " account");
+    }
+
+
     private void updateStatus(String message) {
         Platform.runLater(() -> {
             view.setSimulationStatus("Status: " + message);
@@ -149,6 +158,9 @@ public class SimulatorController {
         return numberOfStations;
     }
 
+    public int getNumberOfAccountStations() {
+        return numberOfAccountStations;
+    }
 
     public void onSimulationComplete(String stats) {
         saveSimulationResults(stats);
@@ -189,7 +201,10 @@ public class SimulatorController {
     public void setAccountServiceTime(double time) {
         this.accountServiceTime = time;
     }
-
+    public void setNumberOfAccountStations(int stations) {
+        this.numberOfAccountStations = stations;
+        updateStatus("Account stations set to: " + stations);
+    }
     public void updateCustomerCount(int count) {
         view.updateStatusArea(count);
     }

@@ -17,7 +17,7 @@ public class MyEngine extends Engine {
 	private ArrivalProcess arrivalProcess;
 	private ServicePoint queueAutomat; // Queue number dispenser
 	private ServicePoint[] transactionTellers;
-	private ServicePoint accountTeller;
+	private ServicePoint[] accountTellers;
 	private Map<String, List<Customer>> queueStatus = new HashMap<>();
 	private SimulatorController controller;
 	private final int numberOfStations;
@@ -31,15 +31,14 @@ public class MyEngine extends Engine {
 		this.numberOfStations = controller.getNumberOfStations();
 		this.arrivalInterval = controller.getArrivalInterval();
 
-
-		// Initialize queue number automat (very fast service, mean=1 min, std=0.5)
+		// Initialize queue automat
 		queueAutomat = new ServicePoint(
 				new Normal(1, 1),
 				eventList,
 				EventType.DEP_AUTOMAT
 		);
 
-
+		// Initialize transaction tellers
 		transactionTellers = new ServicePoint[numberOfStations];
 		for(int i = 0; i < numberOfStations; i++) {
 			transactionTellers[i] = new ServicePoint(
@@ -49,20 +48,23 @@ public class MyEngine extends Engine {
 			);
 		}
 
-		// Initialize account operations teller
-		accountTeller = new ServicePoint(
-				new Normal(controller.getAccountServiceTime(), controller.getAccountServiceTime()/2),
-				eventList,
-				EventType.DEP_ACCOUNT
-		);
+		// Initialize account tellers
+		int numAccountTellers = controller.getNumberOfAccountStations();
+		accountTellers = new ServicePoint[numAccountTellers];
+		for(int i = 0; i < numAccountTellers; i++) {
+			accountTellers[i] = new ServicePoint(
+					new Normal(controller.getAccountServiceTime(), controller.getAccountServiceTime()/2),
+					eventList,
+					EventType.valueOf("DEP_ACCOUNT" + (i+1))
+			);
+		}
 
-		// Customer arrivals follow negative exponential distribution
+		// Initialize arrival process
 		arrivalProcess = new ArrivalProcess(
 				new Negexp(controller.getArrivalInterval()),
 				eventList,
 				EventType.ARR_AUTOMAT
 		);
-
 	}
 
 	public void setArrivalInterval(double interval) {
@@ -145,19 +147,9 @@ public class MyEngine extends Engine {
 						ServicePoint bestTeller = findShortestQueue(transactionTellers);
 						bestTeller.addQueue(a);
 					} else {
-						accountTeller.addQueue(a);
+						ServicePoint bestAccountTeller = findShortestAccountQueue();
+						bestAccountTeller.addQueue(a);
 					}
-				}
-				updateQueueStatus();
-				break;
-
-			case DEP_ACCOUNT:
-				a = accountTeller.removeQueue();
-				if (a != null) {
-					a.setRemovalTime(Clock.getInstance().getClock());
-					a.reportResults();
-					totalCustomersServed++;
-					controller.updateCustomerCount(totalCustomersServed);
 				}
 				updateQueueStatus();
 				break;
@@ -174,8 +166,19 @@ public class MyEngine extends Engine {
 							controller.updateCustomerCount(totalCustomersServed);
 						}
 					}
-					updateQueueStatus();
+				} else if (eventType.toString().startsWith("DEP_ACCOUNT")) {
+					int accountIndex = Integer.parseInt(eventType.toString().substring(11)) - 1;
+					if (accountIndex < accountTellers.length) {
+						a = accountTellers[accountIndex].removeQueue();
+						if (a != null) {
+							a.setRemovalTime(Clock.getInstance().getClock());
+							a.reportResults();
+							totalCustomersServed++;
+							controller.updateCustomerCount(totalCustomersServed);
+						}
+					}
 				}
+				updateQueueStatus();
 				break;
 		}
 	}
@@ -194,9 +197,11 @@ public class MyEngine extends Engine {
 			}
 		}
 
-		// Check account teller
-		if (!accountTeller.isReserved() && accountTeller.isOnQueue()) {
-			accountTeller.beginService();
+		// Check account tellers
+		for (ServicePoint teller : accountTellers) {
+			if (!teller.isReserved() && teller.isOnQueue()) {
+				teller.beginService();
+			}
 		}
 	}
 
@@ -235,8 +240,12 @@ public class MyEngine extends Engine {
 		stats.append("Total Transaction Customers: " + totalTransactionCustomers + "\n");
 
 		stats.append("\nAccount Operations Teller Statistics:\n");
-		stats.append(getServicePointStats(accountTeller, "Account Teller"));
-		stats.append("Total Account Customers: " + accountTeller.getServedCustomers() + "\n");
+		int totalAccountCustomers = 0;
+		for(int i = 0; i < accountTellers.length; i++) {
+			totalAccountCustomers += accountTellers[i].getServedCustomers();
+			stats.append(getServicePointStats(accountTellers[i], "Account Teller " + (i+1)));
+		}
+		stats.append("Total Account Customers: " + totalAccountCustomers + "\n");
 
 		controller.onSimulationComplete(stats.toString());
 	}
@@ -258,6 +267,17 @@ public class MyEngine extends Engine {
 		return shortest;
 	}
 
+
+private ServicePoint findShortestAccountQueue() {
+	ServicePoint shortest = accountTellers[0];
+	for(ServicePoint sp : accountTellers) {
+		if(sp.getQueueLength() < shortest.getQueueLength()) {
+			shortest = sp;
+		}
+	}
+	return shortest;
+}
+
 	private void updateQueueStatus() {
 		System.out.println("Engine updating queue status");
 		queueStatus.clear();
@@ -267,7 +287,9 @@ public class MyEngine extends Engine {
 			queueStatus.put("teller" + (i+1), transactionTellers[i].getQueueCustomers());
 		}
 
-		queueStatus.put("account", accountTeller.getQueueCustomers());
+		for(int i = 0; i < accountTellers.length; i++) {
+			queueStatus.put("account" + (i+1), accountTellers[i].getQueueCustomers());
+		}
 
 		System.out.println("Current queue status: " + queueStatus);
 		notifyQueueUpdate(queueStatus);

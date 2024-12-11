@@ -11,9 +11,12 @@ public enum EventType implements IEventType {
 	DEP_TELLER3,    // Departure from teller 3
 	DEP_TELLER4,    // Departure from teller 4
 	DEP_TELLER5,    // Departure from teller 5
-	DEP_TELLER6,    // Departure from teller 6
-	DEP_TELLER7,
-	DEP_ACCOUNT;	// Departure from teller 7
+	DEP_ACCOUNT1,
+	DEP_ACCOUNT2,
+	DEP_ACCOUNT3,
+	DEP_ACCOUNT4,
+	DEP_ACCOUNT5;
+
 
 	public static EventType getTellerDeparture(int tellerNumber) {
 		return valueOf("DEP_TELLER" + tellerNumber);

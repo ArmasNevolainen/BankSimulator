@@ -21,6 +21,7 @@ import java.util.Map;
 
 public class SimulatorView extends Application {
     private boolean isSimulationComplete = false;
+    private boolean isUpdating = false;
     private SimulatorController controller = new SimulatorController(this);
     private Button startButton = new Button("Start");
     private Button pauseButton = new Button("Pause");
@@ -30,6 +31,7 @@ public class SimulatorView extends Application {
     private Slider clientDistributionSlider = new Slider(0, 100, 80);
     private Label speedLabel = new Label("Simulation Speed:");
     private ComboBox<String> stationsSelector = new ComboBox<>();
+    private ComboBox<String> accountStationsSelector = new ComboBox<>();
     private Slider intervalSlider = new Slider(1, 10, 5);
     private Slider serviceTimeSlider = new Slider(5, 30, 10);
     private Slider accountServiceTimeSlider = new Slider(10, 60, 15);
@@ -56,6 +58,7 @@ public class SimulatorView extends Application {
         accountClient = new Image(getClass().getResource("/AClient.png").toExternalForm());
         transactionClient = new Image(getClass().getResource("/TClient.png").toExternalForm());
         BorderPane mainLayout = new BorderPane();
+
         VBox topContainer = new VBox();
         topContainer.setAlignment(Pos.CENTER);
         topContainer.setMaxWidth(Double.MAX_VALUE);
@@ -74,9 +77,10 @@ public class SimulatorView extends Application {
         mainLayout.setTop(topContainer);
 
         // Settings Panel
-        VBox settingsPanel = new VBox(10);
-        settingsPanel.setPadding(new Insets(10));
-        settingsPanel.setPrefWidth(200); // Fixed width for controls
+        VBox settingsPanel = new VBox(5);
+        settingsPanel.setPadding(new Insets(5));
+        settingsPanel.setPrefWidth(200);
+        BorderPane.setMargin(settingsPanel, new Insets(20));
 
         // Sliders
         simulationTimeSlider.setShowTickLabels(true);
@@ -91,8 +95,10 @@ public class SimulatorView extends Application {
         clientDistributionSlider.setValue(80);
         speedSlider.setShowTickLabels(true);
         speedSlider.setShowTickMarks(true);
-        stationsSelector.getItems().addAll("2 Stations", "3 Stations", "4 Stations", "5 Stations");
-        stationsSelector.setValue("3 Stations");
+        stationsSelector.getItems().addAll("1 Station", "2 Stations", "3 Stations", "4 Stations", "5 Stations");
+        stationsSelector.setValue("2 Stations");
+        accountStationsSelector.getItems().addAll("1 Station", "2 Stations", "3 Stations", "4 Stations", "5 Stations");
+        accountStationsSelector.setValue("1 Station");
         intervalSlider.setShowTickLabels(true);
         intervalSlider.setShowTickMarks(true);
         intervalSlider.setMajorTickUnit(1);
@@ -116,8 +122,10 @@ public class SimulatorView extends Application {
                 simulationTimeSlider,
                 speedLabel,
                 speedSlider,
-                new Label("Stations:"),
+                new Label("Transaction Teller Stations:"),
                 stationsSelector,
+                new Label("Account Teller Stations:"),
+                accountStationsSelector,
                 intervalLabel,
                 intervalSlider,
                 new Label("Transaction Clients %:"),
@@ -164,7 +172,7 @@ public class SimulatorView extends Application {
         statsPanel.setPadding(new Insets(10));
         statsPanel.setPrefWidth(250);
         statsPanel.setStyle("-fx-background-color: #f0f0f0;");
-        statsPanel.setPadding(new Insets(10, 20, 10, 10));
+        statsPanel.setPadding(new Insets(10, 20, 0, 10));
         statsScrollPane.setPadding(new Insets(0, 10, 0, 0));
         statsScrollPane.setContent(statsPanel);
         statsScrollPane.setFitToWidth(true);
@@ -179,8 +187,13 @@ public class SimulatorView extends Application {
         stage.show();
 
         startButton.setOnAction(e -> {
+            simulationTimeSlider.setDisable(true);
             clientDistributionSlider.setDisable(true);
             stationsSelector.setDisable(true);
+            accountStationsSelector.setDisable(true);
+            intervalSlider.setDisable(true);
+            serviceTimeSlider.setDisable(true);
+            accountServiceTimeSlider.setDisable(true);
             controller.setClientDistribution(clientDistributionSlider.getValue());
             controller.startSimulation();
         });
@@ -189,8 +202,13 @@ public class SimulatorView extends Application {
             updatePauseButton(pauseButton.getText().equals("Pause"));
         });
         resetButton.setOnAction(e -> {
+            simulationTimeSlider.setDisable(false);
             clientDistributionSlider.setDisable(false);
             stationsSelector.setDisable(false);
+            accountStationsSelector.setDisable(false);
+            intervalSlider.setDisable(false);
+            serviceTimeSlider.setDisable(false);
+            accountServiceTimeSlider.setDisable(false);
             controller.resetSimulation();
         });
 
@@ -201,10 +219,18 @@ public class SimulatorView extends Application {
         speedSlider.valueProperty().addListener((obs, oldVal, newVal) ->
                 controller.setSimulationSpeed(newVal.doubleValue()));
 
+
+
         stationsSelector.valueProperty().addListener((obs, oldVal, newVal) -> {
-            int stations = Integer.parseInt(newVal.split(" ")[0]);
-            controller.setNumberOfStations(stations);
-            drawBaseElements();
+            if (newVal != null) {
+                updateStationSelectors(true);
+            }
+        });
+
+        accountStationsSelector.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                updateStationSelectors(false);
+            }
         });
 
         intervalSlider.setOnMouseReleased(event ->
@@ -243,61 +269,66 @@ public class SimulatorView extends Application {
     private void drawBaseElements() {
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
         double canvasHeight = simulationCanvas.getHeight();
-        int activeStations = controller.getNumberOfStations() + 1; // +1 for account teller
+        int numTransactionTellers = controller.getNumberOfStations();
+        int numAccountTellers = controller.getNumberOfAccountStations();
         int tellerWidth = 40;
         int tellerHeight = 50;
         int tellerX = 500;
 
-        // Calculate spacing to fit within visible area
+        // Calculate spacing for all tellers
         double usableHeight = canvasHeight - (2 * margin) - tellerHeight;
-        double spacing = usableHeight / (activeStations - 1);
+        double spacing = usableHeight / (numTransactionTellers + numAccountTellers - 1);
 
-        // Canvas background
+        // Draw background and automat
         gc.setFill(Color.GRAY);
         gc.fillRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
+        gc.drawImage(automate, 250, (canvasHeight - 50) / 2, 30, 50);
 
-        // Queue automat
-        gc.drawImage(automate, 250, (canvasHeight - 50) / 2, 20, 40);
-
-        // Regular tellers
-        for(int i = 0; i < activeStations - 1; i++) {
+        // Draw transaction tellers
+        for(int i = 0; i < numTransactionTellers; i++) {
             double yPosition = margin + (spacing * i);
             gc.drawImage(teller, tellerX, yPosition, tellerWidth, tellerHeight);
         }
 
-        // Account teller at the last position
-        gc.drawImage(accountTeller, tellerX, canvasHeight - margin - tellerHeight, tellerWidth, tellerHeight);
+        // Draw account tellers
+        for(int i = 0; i < numAccountTellers; i++) {
+            double yPosition = margin + (spacing * (numTransactionTellers + i));
+            gc.drawImage(accountTeller, tellerX, yPosition, tellerWidth, tellerHeight);
+        }
     }
 
 
     private void drawCustomerQueues(Map<String, List<Integer>> queueStatus) {
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
         double canvasHeight = simulationCanvas.getHeight();
-        int activeStations = controller.getNumberOfStations() + 1; // +1 for account teller
+        int numTransactionTellers = controller.getNumberOfStations();
+        int numAccountTellers = controller.getNumberOfAccountStations();
 
-        // Calculate same spacing as used for tellers
         double usableHeight = canvasHeight - (2 * margin) - 50;
-        double spacing = usableHeight / (activeStations - 1);
+        double spacing = usableHeight / (numTransactionTellers + numAccountTellers - 1);
 
-        // Automat queue
+        // Draw automat queue
         List<Integer> automatQueue = queueStatus.get("automat");
         if (automatQueue != null) {
-            drawQueueCustomers(gc, automatQueue, 220, ((int)(canvasHeight - 50) / 2)-10, true);
+            drawQueueCustomers(gc, automatQueue, 220, (int)(canvasHeight - 50) / 2, true);
         }
 
-        // Transaction teller queues
-        for(int i = 1; i <= controller.getNumberOfStations(); i++) {
+        // Draw transaction teller queues
+        for(int i = 1; i <= numTransactionTellers; i++) {
             List<Integer> tellerQueue = queueStatus.get("teller" + i);
             if (tellerQueue != null) {
                 double yPosition = margin + (spacing * (i-1));
-                drawQueueCustomers(gc, tellerQueue, 470, (int)yPosition, true);
+                drawQueueCustomers(gc, tellerQueue, 450, (int)yPosition, true);
             }
         }
 
-        // Account teller queue
-        List<Integer> accountQueue = queueStatus.get("account");
-        if (accountQueue != null) {
-            drawQueueCustomers(gc, accountQueue, 470, (int)(canvasHeight - margin - 50), true);
+        // Draw account teller queues
+        for(int i = 1; i <= numAccountTellers; i++) {
+            List<Integer> accountQueue = queueStatus.get("account" + i);
+            if (accountQueue != null) {
+                double yPosition = margin + (spacing * (numTransactionTellers + i - 1));
+                drawQueueCustomers(gc, accountQueue, 450, (int)yPosition, true);
+            }
         }
     }
 
@@ -389,6 +420,49 @@ public class SimulatorView extends Application {
         Platform.runLater(() -> {
             pauseButton.setText(isPaused ? "Resume" : "Pause");
         });
+    }
+    private void updateStationSelectors(boolean isTransactionUpdate) {
+        if (isUpdating) return;
+
+        try {
+            isUpdating = true;
+            int total = 6;
+            int currentValue, maxOtherValue, newOtherValue;
+            ComboBox<String> updatingBox, otherBox;
+
+            if (isTransactionUpdate) {
+                updatingBox = stationsSelector;
+                otherBox = accountStationsSelector;
+            } else {
+                updatingBox = accountStationsSelector;
+                otherBox = stationsSelector;
+            }
+
+            currentValue = Integer.parseInt(updatingBox.getValue().split(" ")[0]);
+            maxOtherValue = total - currentValue;
+            int currentOther = Integer.parseInt(otherBox.getValue().split(" ")[0]);
+            newOtherValue = Math.min(currentOther, maxOtherValue);
+
+            // Update other ComboBox
+            otherBox.getItems().clear();
+            for(int i = 1; i <= maxOtherValue; i++) {
+                otherBox.getItems().add(i + (i == 1 ? " Station" : " Stations"));
+            }
+            otherBox.setValue(newOtherValue + (newOtherValue == 1 ? " Station" : " Stations"));
+
+            // Update controller and redraw
+            if (isTransactionUpdate) {
+                controller.setStationNumbers(newOtherValue, currentValue);
+            } else {
+                controller.setStationNumbers(currentValue, newOtherValue);
+            }
+            drawBaseElements();
+
+        } catch (Exception e) {
+            System.err.println("Error updating stations: " + e.getMessage());
+        } finally {
+            isUpdating = false;
+        }
     }
 
     public void updateStatusArea(int totalCustomers) {

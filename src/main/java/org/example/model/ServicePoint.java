@@ -27,8 +27,10 @@ public class ServicePoint {
 	}
 
 	public void addQueue(Customer a) {
-		a.setQueueStartTime(Clock.getInstance().getClock());
 		queue.add(a);
+		double currentTime = Clock.getInstance().getClock();
+		a.setQueueStartTime(currentTime);
+		System.out.println("Added customer " + a.getId() + " to queue at time: " + currentTime);
 	}
 
 	public void beginService() {
