@@ -206,10 +206,23 @@ public class MyEngine extends Engine {
 	@Override
 	protected void results() {
 		StringBuilder stats = new StringBuilder();
+
+		// Settings Section
+		stats.append("\n=== Simulation Settings ===\n");
+		stats.append("Number of Transaction Tellers: " + numberOfStations + "\n");
+		stats.append(String.format("Client Arrival Interval: %.2f minutes\n", arrivalInterval));
+		stats.append(String.format("Transaction Service Time: %.2f minutes\n", controller.getTransactionServiceTime()));
+		stats.append(String.format("Account Service Time: %.2f minutes\n", controller.getAccountServiceTime()));
+		stats.append(String.format("Client Distribution (Transaction/Account): %.1f%% / %.1f%%\n",
+				controller.getClientDistribution(),
+				(100 - controller.getClientDistribution())));
+
+		// Results Section
 		stats.append("\n=== Simulation Results ===\n");
-		stats.append("Simulation ended at: " + Clock.getInstance().getClock() + "\n");
+		stats.append(String.format("Simulation ended at: %.2f minutes\n", Clock.getInstance().getClock()));
 		stats.append("Total Customers Served: " + totalCustomersServed + "\n");
 
+		// Service Points Statistics
 		stats.append("\nQueue Automat Statistics:\n");
 		stats.append(getServicePointStats(queueAutomat, "Queue Automat"));
 
@@ -231,8 +244,8 @@ public class MyEngine extends Engine {
 	private String getServicePointStats(ServicePoint sp, String name) {
 		return name + ":\n" +
 				"  Customers Served: " + sp.getServedCustomers() + "\n" +
-				"  Average Service Time: " + sp.getAverageServiceTime() + "\n" +
-				"  Average Queue Time: " + sp.getAverageQueueTime() + "\n";
+				String.format("  Average Service Time: %.2f minutes\n", sp.getAverageServiceTime()) +
+				String.format("  Average Queue Time: %.2f minutes\n", sp.getAverageQueueTime());
 	}
 
 	private ServicePoint findShortestQueue(ServicePoint[] points) {
