@@ -19,6 +19,14 @@ import org.example.model.Customer;
 import java.util.List;
 import java.util.Map;
 
+
+/**
+ * JavaFX-based graphical user interface for the bank simulation system.
+ * Provides interactive controls and real-time visualization of the simulation.
+ *
+ * @author Group 3
+ * @version 1.0
+ */
 public class SimulatorView extends Application {
     private boolean isSimulationComplete = false;
     private boolean isUpdating = false;
@@ -43,6 +51,8 @@ public class SimulatorView extends Application {
     private VBox statsPanel = new VBox(5);
     private int margin = 50;
     private ComboBox<String> resultsHistoryBox = new ComboBox<>();
+    private VBox historyPanel = new VBox(5);
+
     //Images
     private Image automate;
     private Image teller;
@@ -50,6 +60,12 @@ public class SimulatorView extends Application {
     private Image accountClient;
     private Image transactionClient;
 
+    /**
+     * Initializes and configures the main simulation interface.
+     * Sets up control panels, visualization canvas, and statistics display.
+     *
+     * @param stage The primary stage for the application
+     */
     @Override
     public void start(Stage stage) {
         automate = new Image(getClass().getResource("/QueueAutomate.png").toExternalForm());
@@ -82,7 +98,7 @@ public class SimulatorView extends Application {
         settingsPanel.setPrefWidth(200);
         BorderPane.setMargin(settingsPanel, new Insets(20));
 
-        // Sliders
+        // Sliders, selectors
         simulationTimeSlider.setShowTickLabels(true);
         simulationTimeSlider.setShowTickMarks(true);
         simulationTimeSlider.setMajorTickUnit(500);
@@ -159,11 +175,7 @@ public class SimulatorView extends Application {
         mainLayout.setCenter(canvasWrapper);
         mainLayout.setBottom(statusArea);
 
-        Scene scene = new Scene(mainLayout, 1200, 630);
-        stage.setTitle("Simulation Control Panel");
-        stage.setScene(scene);
-
-        VBox historyPanel = new VBox(5);
+        // History Panel
         Label historyLabel = new Label("Previous Results:");
         resultsHistoryBox.setMaxWidth(230);
         historyPanel.getChildren().addAll(historyLabel, resultsHistoryBox);
@@ -181,11 +193,17 @@ public class SimulatorView extends Application {
         statsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         mainLayout.setRight(statsScrollPane);
 
+        //Scene
+        Scene scene = new Scene(mainLayout, 1200, 640);
+        stage.setTitle("Simulation Control Panel");
+        stage.setScene(scene);
+
         // Initial draw
         drawBaseElements();
         updateResultsHistory();
         stage.show();
 
+        // Event handlers
         startButton.setOnAction(e -> {
             simulationTimeSlider.setDisable(true);
             clientDistributionSlider.setDisable(true);
@@ -250,22 +268,14 @@ public class SimulatorView extends Application {
 
     }
 
-    public boolean isSimulationComplete() {
-        return simulationStatusLabel.getText().contains("Complete");
-    }
 
-    public void updateQueueVisualization(Map<String, List<Customer>> queueStatus) {
-        Platform.runLater(() -> {
-            if (isSimulationComplete()) {
-                return;
-            }
-            GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
-            gc.clearRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
 
-            drawBaseElements();
-            drawCustomerQueues(controller.convertQueueStatusToSigns(queueStatus));
-        });
-    }
+
+    // Drawing methods
+    /**
+     * Draws the base layout of the simulation including service points and tellers.
+     * Called when initializing or resetting the visualization.
+     */
     private void drawBaseElements() {
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
         double canvasHeight = simulationCanvas.getHeight();
@@ -297,7 +307,11 @@ public class SimulatorView extends Application {
         }
     }
 
-
+    /**
+     * Draws customer queues for all service points based on current queue status.
+     *
+     * @param queueStatus Map containing queue information for each service point
+     */
     private void drawCustomerQueues(Map<String, List<Integer>> queueStatus) {
         GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
         double canvasHeight = simulationCanvas.getHeight();
@@ -332,13 +346,15 @@ public class SimulatorView extends Application {
         }
     }
 
-
-
-    private void drawCustomers(GraphicsContext gc, int clientSign, int x, int y) {
-        gc.drawImage(clientSign == 1 ? transactionClient : accountClient, x, y, 20, 40);
-        gc.fillOval(x, y, 10, 10);
-    }
-
+    /**
+     * Draws individual customers in a queue with appropriate spacing and overflow handling.
+     *
+     * @param gc Graphics context for drawing
+     * @param clientSigns List of customer types (1 for transaction, 2 for account)
+     * @param startX Starting X coordinate for the queue
+     * @param startY Starting Y coordinate for the queue
+     * @param horizontal Whether to draw the queue horizontally
+     */
     private void drawQueueCustomers(GraphicsContext gc, List<Integer> clientSigns, int startX, int startY, boolean horizontal) {
         if (clientSigns == null) return;
 
@@ -367,6 +383,11 @@ public class SimulatorView extends Application {
         }
     }
 
+    // UI update methods
+    /**
+     * Handles the completion of a simulation run.
+     * Updates UI elements to reflect completion state.
+     */
     public void showSimulationComplete() {
         Platform.runLater(() -> {
             simulationStatusLabel.setText("Status: Simulation Complete");
@@ -376,6 +397,10 @@ public class SimulatorView extends Application {
             resetButton.setDisable(false);
         });
     }
+    /**
+     * Resets the simulation interface to its initial state.
+     * Enables controls and clears statistics.
+     */
     public void showSimulationReset() {
         startButton.setDisable(false);
         pauseButton.setDisable(false);
@@ -383,19 +408,18 @@ public class SimulatorView extends Application {
         simulationStatusLabel.setText("Status: Ready");
         updateStatistics("");
     }
-
+    /**
+     * Updates the simulation statistics panel with new results.
+     * Displays detailed metrics about the simulation run.
+     *
+     * @param stats Formatted string containing simulation statistics
+     */
     public void updateStatistics(String stats) {
         Platform.runLater(() -> {
-            // Clear panel
             statsPanel.getChildren().clear();
 
-            // First add history section
-            Label historyLabel = new Label("Previous Results:");
-            historyLabel.setStyle("-fx-font-weight: bold;");
-            statsPanel.getChildren().add(historyLabel);
-            statsPanel.getChildren().add(resultsHistoryBox);
+            statsPanel.getChildren().add(historyPanel);
 
-            // Then add current statistics if provided
             if (stats != null && !stats.isEmpty()) {
                 Label titleLabel = new Label("Simulation Statistics");
                 titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
@@ -412,15 +436,58 @@ public class SimulatorView extends Application {
             }
         });
     }
+
+    /**
+     * Updates the simulation status label.
+     *
+     * @param status New status message to display
+     */
     public void setSimulationStatus(String status) {
         simulationStatusLabel.setText(status);
     }
 
+    /**
+     * Checks if the simulation has completed.
+     *
+     * @return true if simulation is complete, false otherwise
+     */
+    public boolean isSimulationComplete() {
+        return simulationStatusLabel.getText().contains("Complete");
+    }
+    /**
+     * Updates the visual representation of customer queues.
+     * Draws customers in their respective queues with appropriate icons.
+     *
+     * @param queueStatus Current status of all queues in the simulation
+     */
+    public void updateQueueVisualization(Map<String, List<Customer>> queueStatus) {
+        Platform.runLater(() -> {
+            if (isSimulationComplete()) {
+                return;
+            }
+            GraphicsContext gc = simulationCanvas.getGraphicsContext2D();
+            gc.clearRect(0, 0, simulationCanvas.getWidth(), simulationCanvas.getHeight());
+
+            drawBaseElements();
+            drawCustomerQueues(controller.convertQueueStatusToSigns(queueStatus));
+        });
+    }
+    /**
+     * Updates the pause button text and state.
+     *
+     * @param isPaused true to show "Resume", false to show "Pause"
+     */
     public void updatePauseButton(boolean isPaused) {
         Platform.runLater(() -> {
             pauseButton.setText(isPaused ? "Resume" : "Pause");
         });
     }
+    /**
+     * Updates the number of service stations while maintaining valid combinations.
+     * Ensures the total number of stations doesn't exceed the maximum limit.
+     *
+     * @param isTransactionUpdate true if updating transaction stations, false for account stations
+     */
     private void updateStationSelectors(boolean isTransactionUpdate) {
         if (isUpdating) return;
 
@@ -443,14 +510,12 @@ public class SimulatorView extends Application {
             int currentOther = Integer.parseInt(otherBox.getValue().split(" ")[0]);
             newOtherValue = Math.min(currentOther, maxOtherValue);
 
-            // Update other ComboBox
             otherBox.getItems().clear();
             for(int i = 1; i <= maxOtherValue; i++) {
                 otherBox.getItems().add(i + (i == 1 ? " Station" : " Stations"));
             }
             otherBox.setValue(newOtherValue + (newOtherValue == 1 ? " Station" : " Stations"));
 
-            // Update controller and redraw
             if (isTransactionUpdate) {
                 controller.setStationNumbers(newOtherValue, currentValue);
             } else {
@@ -464,13 +529,20 @@ public class SimulatorView extends Application {
             isUpdating = false;
         }
     }
-
+    /**
+     * Updates the status display area with current customer count.
+     *
+     * @param totalCustomers Total number of customers served
+     */
     public void updateStatusArea(int totalCustomers) {
         Platform.runLater(() -> {
             statusArea.setText("Simulation running...\nTotal customers served: " + totalCustomers);
         });
     }
-
+    /**
+     * Updates the historical results dropdown with past simulation runs.
+     * Maintains the current selection if still available.
+     */
     public void updateResultsHistory() {
         Platform.runLater(() -> {
             String currentSelection = resultsHistoryBox.getValue();
@@ -481,7 +553,11 @@ public class SimulatorView extends Application {
             }
         });
     }
-
+    /**
+     * Loads and displays historical simulation results.
+     *
+     * @param timestamp Timestamp of the historical result to load
+     */
     private void loadHistoricalResults(String timestamp) {
         if (timestamp != null) {
             String results = controller.getResultsByTimestamp(timestamp);

@@ -8,7 +8,6 @@ import java.util.Calendar;
 /** A class which allows for automatically parsing a distribution implementation and generate
  * a class inheriting from Generator accordingly. Use the return type to implements either
  * DiscreteGenerator or ContinuousGenerator. Prompt the user to specify constraints on the parameters.
- * @date 4/10/2002
  * @author F.Mallet
  */
 public class MetaGenerator {

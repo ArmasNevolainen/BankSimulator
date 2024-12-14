@@ -13,6 +13,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Core simulation engine for the bank queuing system.
+ * Manages customer flow through various service points and collects statistics.
+ *
+ * @author Group 3
+ * @version 1.0
+ */
 public class MyEngine extends Engine {
 	private ArrivalProcess arrivalProcess;
 	private ServicePoint queueAutomat; // Queue number dispenser
@@ -25,7 +32,12 @@ public class MyEngine extends Engine {
 	private int totalCustomersServed = 0;
 
 
-
+	/**
+			* Constructs a new simulation engine with specified controller settings.
+			* Initializes service points, tellers, and arrival processes.
+     *
+			 * @param controller The simulation controller containing configuration parameters
+     */
 	public MyEngine(SimulatorController controller) {
 		this.controller = controller;
 		this.numberOfStations = controller.getNumberOfStations();
@@ -66,20 +78,13 @@ public class MyEngine extends Engine {
 				EventType.ARR_AUTOMAT
 		);
 	}
-
+	/**
+	 * Updates the arrival interval and regenerates the arrival process.
+	 *
+	 * @param interval New time interval between customer arrivals
+	 */
 	public void setArrivalInterval(double interval) {
 		this.arrivalInterval = interval;
-		arrivalProcess = new ArrivalProcess(
-				new Negexp(arrivalInterval),
-				eventList,
-				EventType.ARR_AUTOMAT
-		);
-		arrivalProcess.generateNextEvent();  // Generate the next event immediately
-	}
-
-
-	@Override
-	protected void initialize() {
 		arrivalProcess = new ArrivalProcess(
 				new Negexp(arrivalInterval),
 				eventList,
@@ -88,6 +93,24 @@ public class MyEngine extends Engine {
 		arrivalProcess.generateNextEvent();
 	}
 
+	/**
+	 * Starts the simulation engine.
+	 */
+	@Override
+	public void initialize() {
+		arrivalProcess = new ArrivalProcess(
+				new Negexp(arrivalInterval),
+				eventList,
+				EventType.ARR_AUTOMAT
+		);
+		arrivalProcess.generateNextEvent();
+	}
+	/**
+	 * Processes simulation events based on their type.
+	 * Handles customer arrivals, departures, and service point transitions.
+	 *
+	 * @param t The event to be processed
+	 */
 	@Override
 	protected void runEvent(Event t) {
 		while (isPaused()) {
@@ -98,7 +121,7 @@ public class MyEngine extends Engine {
 				return;
 			}
 		}
-		long sleepTime = Math.max(0, controller.getSleepTime()); // Ensure non-negative value
+		long sleepTime = Math.max(0, controller.getSleepTime());
 		try {
 			Thread.sleep(sleepTime);
 		} catch (InterruptedException e) {
@@ -182,7 +205,10 @@ public class MyEngine extends Engine {
 				break;
 		}
 	}
-
+	/**
+	 * Attempts to start service for customers waiting in queues.
+	 * Checks all service points for available capacity.
+	 */
 	@Override
 	protected void tryCEvents() {
 		// Check queue automat
@@ -208,6 +234,10 @@ public class MyEngine extends Engine {
 
 
 
+	/**
+	 * Generates final simulation statistics and results.
+	 * Collects data from all service points and reports to controller.
+	 */
 	@Override
 	protected void results() {
 		StringBuilder stats = new StringBuilder();
@@ -249,7 +279,13 @@ public class MyEngine extends Engine {
 
 		controller.onSimulationComplete(stats.toString());
 	}
-
+	/**
+	 * Generates a formatted string of statistics for a service point.
+	 *
+	 * @param sp The service point to report statistics for
+	 * @param name The name of the service point
+	 * @return Formatted string of service point statistics
+	 */
 	private String getServicePointStats(ServicePoint sp, String name) {
 		return name + ":\n" +
 				"  Customers Served: " + sp.getServedCustomers() + "\n" +
@@ -257,6 +293,12 @@ public class MyEngine extends Engine {
 				String.format("  Average Queue Time: %.2f minutes\n", sp.getAverageQueueTime());
 	}
 
+	/**
+	 * Finds the service point with the shortest queue.
+	 *
+	 * @param points Array of service points to check
+	 * @return ServicePoint with minimum queue length
+	 */
 	private ServicePoint findShortestQueue(ServicePoint[] points) {
 		ServicePoint shortest = points[0];
 		for(ServicePoint sp : points) {
@@ -267,17 +309,24 @@ public class MyEngine extends Engine {
 		return shortest;
 	}
 
-
-private ServicePoint findShortestAccountQueue() {
-	ServicePoint shortest = accountTellers[0];
-	for(ServicePoint sp : accountTellers) {
-		if(sp.getQueueLength() < shortest.getQueueLength()) {
-			shortest = sp;
+	/**
+	 * Finds the account service point with the shortest queue.
+	 *
+	 * @return ServicePoint with minimum queue length
+	 */
+	private ServicePoint findShortestAccountQueue() {
+		ServicePoint shortest = accountTellers[0];
+		for(ServicePoint sp : accountTellers) {
+			if(sp.getQueueLength() < shortest.getQueueLength()) {
+				shortest = sp;
+			}
 		}
+		return shortest;
 	}
-	return shortest;
-}
-
+	/**
+	 * Updates and notifies listeners of changes in queue status.
+	 * Creates a snapshot of current queue states across all service points.
+	 */
 	private void updateQueueStatus() {
 		System.out.println("Engine updating queue status");
 		queueStatus.clear();
@@ -294,29 +343,35 @@ private ServicePoint findShortestAccountQueue() {
 		System.out.println("Current queue status: " + queueStatus);
 		notifyQueueUpdate(queueStatus);
 	}
+	/**
+	 * Returns a copy of the current queue status.
+	 *
+	 * @return Map of service point names to customer queues
+	 */
+	public Map<String, List<Customer>> getQueueStatus() {
+		return new HashMap<>(queueStatus);
+	}
 
+	/**
+	 * Sets the listener for queue status updates.
+	 *
+	 * @param listener The QueueUpdateListener to receive status updates
+	 */
 	public void setQueueUpdateListener(QueueUpdateListener listener) {
 		this.queueUpdateListener = listener;
 	}
-
+	/**
+	 * Notifies the listener of changes in queue status.
+	 *
+	 * @param queueStatus Map of service point names to customer queues
+	 */
 	private void notifyQueueUpdate(Map<String, List<Customer>> queueStatus) {
-		System.out.println("Engine notifying listener with queue status");
 		if (queueUpdateListener != null) {
-			System.out.println("Listener is present, calling onQueueUpdate");
-			queueUpdateListener.onQueueUpdate(new HashMap<>(queueStatus));  // Send a copy of the map
+			queueUpdateListener.onQueueUpdate(new HashMap<>(queueStatus));  // pass a copy of the queue status
 		} else {
 			System.out.println("No queue update listener registered");
 		}
 	}
 
 
-
-
-
-	private void printServicePointStats(ServicePoint sp, String name) {
-		System.out.println(name + ":");
-		System.out.println("  Average Service Time: " + sp.getAverageServiceTime());
-		System.out.println("  Average Queue Time: " + sp.getAverageQueueTime());
-
-	}
 }
