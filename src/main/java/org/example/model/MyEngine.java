@@ -112,7 +112,7 @@ public class MyEngine extends Engine {
 	 * @param t The event to be processed
 	 */
 	@Override
-	protected void runEvent(Event t) {
+	public void runEvent(Event t) {
 		while (isPaused()) {
 			try {
 				Thread.sleep(100);
@@ -340,7 +340,6 @@ public class MyEngine extends Engine {
 			queueStatus.put("account" + (i+1), accountTellers[i].getQueueCustomers());
 		}
 
-		System.out.println("Current queue status: " + queueStatus);
 		notifyQueueUpdate(queueStatus);
 	}
 	/**
